@@ -1,0 +1,70 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# IDE / editors
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+*.sublime-*
+
+# Jupyter
+.ipynb_checkpoints/
+*-checkpoint.ipynb
+
+# Hackathon data and task
+data/
+task/
+submissions/
+
+# ML artifacts
+mlruns/
+mlflow.db
+*.pkl
+*.joblib
+*.ckpt
+*.pt
+*.pth
+*.bin
+*.onnx
+/models/
+/checkpoints/
+/oof/
+
+# Logs and reports
+*.log
+logs/
+reports/
+
+# OS
+*.tmp
+*.bak
+
+# AI assistant tooling
+.claude/
+CLAUDE.md
+.aider*
+.cursorrules
+.cursor/
+.github/copilot-instructions.md
+.specstory/
+.continue/
+.codeium/
+.tabnine*
