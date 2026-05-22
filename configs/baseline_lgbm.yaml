@@ -1,48 +1,35 @@
-# Конфиг бейзлайн-эксперимента: LightGBM LambdaRank
-# Используется в фазе 2 (после EDA)
-experiment_name: baseline_lgbm
-run_name: lgbm_lambdarank_v0
+# Бейзлайн: LightGBM LambdaRank на полном feature set.
+# Запуск: python scripts/train.py --config configs/baseline_lgbm.yaml
+experiment_name: alfa_cred
+run_name: baseline_lgbm_lambdarank
 
 model:
   type: lgbm_ranker
+  n_estimators: 3000
+  early_stopping_rounds: 150
   params:
     objective: lambdarank
     metric: ndcg
     eval_at: [5]
     lambdarank_truncation_level: 5
-    n_estimators: 2000
     learning_rate: 0.05
     num_leaves: 127
     min_data_in_leaf: 100
     feature_fraction: 0.85
     bagging_fraction: 0.85
     bagging_freq: 5
-    random_state: 42
+    lambda_l2: 1.0
     verbose: -1
+    n_jobs: -1
+    seed: 42
 
 features:
-  basic:
-    - req_loan_amount
-    - req_term
-    - rate
-    - term
-    - limit
-    - eva
-    - eva_perc
-    - ncl
-  categorical:
-    - offer_type
-    - risk_level_map
-    - channel
-    - verif_compl
-    - verif_need
-    - need_2ndfl
-    - pil1mtrx_offer
+  min_fill_rate: 0.5
 
 cv:
-  scheme: group  # переопределится после EDA при наличии явного time-drift
+  scheme: group
   n_splits: 5
   random_state: 42
 
-submission:
-  output_path: submissions/baseline_lgbm.csv
+inference:
+  apply_pil1mtrx_rule: true
