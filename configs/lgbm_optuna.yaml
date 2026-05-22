@@ -1,0 +1,33 @@
+experiment_name: alfa_cred
+run_name: lgbm_optuna_30t_20260522_2103_full
+model:
+  type: lgbm_ranker
+  n_estimators: 4000
+  early_stopping_rounds: 200
+  params:
+    objective: lambdarank
+    metric: ndcg
+    eval_at:
+    - 5
+    lambdarank_truncation_level: 5
+    learning_rate: 0.013824637338364103
+    num_leaves: 374
+    min_data_in_leaf: 388
+    feature_fraction: 0.7806385987847482
+    bagging_fraction: 0.8854835899772805
+    bagging_freq: 5
+    lambda_l2: 7.04480806377519e-05
+    verbose: -1
+    n_jobs: -1
+    seed: 42
+    lambda_l1: 0.0005065186776865479
+    min_gain_to_split: 0.012709563372047594
+    max_depth: 0
+features:
+  min_fill_rate: 0.5
+cv:
+  scheme: group
+  n_splits: 5
+  random_state: 42
+inference:
+  apply_pil1mtrx_rule: true
