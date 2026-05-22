@@ -32,6 +32,10 @@ Thumbs.db
 # Скрипты-исходники для ноутбуков (используются только для копирования в .ipynb)
 notebooks/*.py
 
+# Локальные оркестраторы ночных прогонов
+scripts/overnight*.py
+scripts/_local*.py
+
 # Hackathon data and task
 data/
 task/
