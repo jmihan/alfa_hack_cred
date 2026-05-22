@@ -26,6 +26,9 @@ from alfa_cred.features.group import (
     add_group_aggregates,
     add_group_ranks,
     add_group_size,
+    add_pairwise_diffs,
+    add_subgroup_ranks,
+    add_variant_position_features,
 )
 from alfa_cred.features.time import add_time_features
 from alfa_cred.io_utils import (
@@ -70,6 +73,9 @@ def build_feature_table(
     merged = add_group_ranks(merged)
     merged = add_group_aggregates(merged)
     merged = add_group_size(merged)
+    merged = add_subgroup_ranks(merged)
+    merged = add_pairwise_diffs(merged)
+    merged = add_variant_position_features(merged)
     merged = add_cross_features(merged)
     merged = add_indicator_features(merged)
     merged = add_basket_features(merged)
