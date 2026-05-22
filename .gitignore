@@ -29,6 +29,9 @@ Thumbs.db
 .ipynb_checkpoints/
 *-checkpoint.ipynb
 
+# Скрипты-исходники для ноутбуков (используются только для копирования в .ipynb)
+notebooks/*.py
+
 # Hackathon data and task
 data/
 task/
