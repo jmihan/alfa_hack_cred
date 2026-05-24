@@ -72,6 +72,13 @@ KNOWN_WEAK_MODELS = (
     # «не помогающие» эксперименты с CV около границы:
     "lgbm_adv_pruned_20260523_0807",    # CV 0.9158 (но drift pruning не дал выигрыша на LB)
     "lgbm_stacking_v2_20260523_0814",   # CV 0.9161 (stacking переобучается на OOF)
+    # Pipeline H (tabular DL) — доказано на LB: добавление к рекорду ухудшает.
+    # FT-T 2 модели → LB 91.9601 (-0.0067), + tabnet → LB 91.9247 (-0.042).
+    # Корреляция рангов TabNet с GBM = 0.764 (очень diverse), но diversity
+    # без минимальной точности (CV ≥ 0.913) не работает — наоборот размывает.
+    "ft_trans_seed42_0845",             # CV 0.9129
+    "ft_trans_seed123_1230",            # CV 0.9119
+    "tabnet_seed42_1149",               # CV 0.8886
 )
 
 
@@ -79,6 +86,8 @@ def expected_lb_score(blend_name: str) -> float | None:
     """Возвращает зафиксированный LB-результат для известного blend'а."""
     return {
         "blend_11_no_cb_extended_f": 91.9668,
+        "blend_record11_plus_h_ft_1708": 91.9601,   # record_11 + 2 FT-T (Pipeline H)
+        "blend_record11_plus_h_all_1708": 91.9247,  # record_11 + 2 FT-T + TabNet
         "blend_mega_strong_only_d_20260523_1441": 91.9471,
         "blend_12_plus_e_top3_f": 91.9427,
         "blend_record12_cv2_weighted_f": 91.9315,
