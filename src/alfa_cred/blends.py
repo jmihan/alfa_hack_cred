@@ -79,6 +79,14 @@ KNOWN_WEAK_MODELS = (
     "ft_trans_seed42_0845",             # CV 0.9129
     "ft_trans_seed123_1230",            # CV 0.9119
     "tabnet_seed42_1149",               # CV 0.8886
+    # Pipeline I — per-epoch модели катастрофически слабые на полном test.
+    # lgbm_epoch_post одиночкой LB 91.4377 (CV на post-сабсете 0.9521 был
+    # обманчиво высоким — внутри-эпохи менее сложная задача).
+    "lgbm_epoch_post_2025",             # CV 0.9521 на post-сабсете, LB 91.4377
+    "lgbm_epoch_pre_2021",              # CV 0.9390 на pre-сабсете
+    # cb_deep_optuna имел CV 0.9167 (выше границы 0.913), но в blend ухудшил
+    # на -0.017. Гипотеза: переобучение Optuna на 50% train сэмпле.
+    "cb_deep_optuna_2342",              # CV 0.9167, blend -0.017
 )
 
 
@@ -88,6 +96,21 @@ def expected_lb_score(blend_name: str) -> float | None:
         "blend_11_no_cb_extended_f": 91.9668,
         "blend_record11_plus_h_ft_1708": 91.9601,   # record_11 + 2 FT-T (Pipeline H)
         "blend_record11_plus_h_all_1708": 91.9247,  # record_11 + 2 FT-T + TabNet
+        "blend_record11_plus_i_cb_2355": 91.9497,   # record_11 + cb_deep_optuna (Pipeline I)
+        "blend_record11_plus_i_all_2355": 91.9414,  # record_11 + все 4 модели Pipeline I
+        # Одиночки (LB как singleton submission, без blend и без hard-rule
+        # boost от других моделей — есть только pil1mtrx hard-rule):
+        "lgbm_epoch_post_2025": 91.4377,            # CV 0.9521 (sub) → LB провал
+        "lgbm_boot_v_s256_2202": 91.8774,           # CV 0.9165 → LB КОРОЛЬ одиночек
+        "lgbm_extended_features": 91.8648,          # CV 0.9165 → LB сильный
+        "cb_deep_optuna_2342": 91.8477,             # CV 0.9167 → LB второй
+        "xgb_rank_ndcg_20260523_0621": 91.8215,
+        "cb_yetirank_tuned_20260523_0422": 91.8049,
+        "lgbm_extended_tuned_seed123_20260523_0245": 91.7962,  # CV 0.9170, LB слабее
+        "lgbm_optuna_30t_20260522_2103_full": 91.7512,
+        "baseline_lgbm_lambdarank": 91.634,
+        "ft_trans_seed42_0845": 91.4893,            # CV 0.9129 → LB провал
+        "tabnet_seed42_1149": 90.2362,              # CV 0.8886 → LB катастрофа
         "blend_mega_strong_only_d_20260523_1441": 91.9471,
         "blend_12_plus_e_top3_f": 91.9427,
         "blend_record12_cv2_weighted_f": 91.9315,
