@@ -106,9 +106,13 @@ KNOWN_WEAK_MODELS = (
 def expected_lb_score(blend_name: str) -> float | None:
     """Возвращает зафиксированный LB-результат для известного blend'а."""
     return {
-        # === Pipeline M+N: новый рекорд через большой/сбалансированный B-blend ===
-        "two_stage_record11_plus_bBalanced_0229": 92.0317,    # НОВЫЙ РЕКОРД! top-3 каждого типа (12 моделей)
-        "two_stage_record11_plus_bKLM_plus_pseudo_0245": 92.0288,  # KLM + 3 pseudo (32 модели)
+        # === НОВЫЙ РЕКОРД: bMega (35 моделей K+L+M+N) ===
+        "two_stage_record11_plus_bMega_0245": 92.0432,        # РЕКОРД! Все K+L+M+N включая distill+crossobj
+        "two_stage_record11_plus_bBalanced_0229": 92.0317,    # top-3 каждого типа (12 моделей)
+        "two_stage_record11_plus_bKLM_plus_crossobj_0245": 92.0324,  # KLM + 2 crossobj (31)
+        "two_stage_record11_plus_bKLM_plus_pseudo_0245": 92.0288,   # KLM + 3 pseudo (32)
+        "two_stage_record11_plus_bFull_0229": 92.0263,        # K+L+M (34, без N)
+        "two_stage_record11_plus_bMnew_0229": 92.0232,        # только M (22, без K/L/N)
         "two_stage_record11_plus_bL_plus_Mcb_0229": 91.9293,  # ПРОВАЛ -0.07: CB не сочетается с bAllL
         # === Pipeline L: ПРОБИТО 92+ через multi-seed B-only XGB + LGBM ===
         "two_stage_record11_plus_bAllL_1914": 92.0006,        # 5 XGB Optuna + 1 LGBM ext
