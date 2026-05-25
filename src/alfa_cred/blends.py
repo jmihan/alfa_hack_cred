@@ -106,8 +106,18 @@ KNOWN_WEAK_MODELS = (
 def expected_lb_score(blend_name: str) -> float | None:
     """Возвращает зафиксированный LB-результат для известного blend'а."""
     return {
-        "two_stage_record11_plus_bTop1_1251": 91.9939,  # НОВЫЙ РЕКОРД (Pipeline K)
-        "hybrid_record11_bw5_1251": 91.9679,            # B-blend 50/50 с record для B запросов
+        # === Pipeline L: ПРОБИТО 92+ через multi-seed B-only XGB + LGBM ===
+        "two_stage_record11_plus_bAllL_1914": 92.0006,        # РЕКОРД! 5 XGB Optuna + 1 LGBM ext
+        "two_stage_record11_plus_bAllXGB_1914": 91.9765,      # 5 multi-seed XGB Optuna
+        "two_stage_record11_plus_bXGBseedBlend_1914": 91.9717,
+        "two_stage_record11_plus_bXGBOptuna_1914": 91.9528,   # одиночный XGB Optuna (хуже default!)
+        "two_stage_record11_plus_bXGB_LGBM_1914": 91.9211,    # маленький B-blend (2 модели) хуже
+        # === Pipeline K: первый прорыв через two-stage ===
+        "two_stage_record11_plus_bTop1_1251": 91.9939,        # xgb_b_default одиночка (КОРОЛЬ B-only одиночек)
+        "two_stage_record11_plus_bAll_1251": 91.9358,
+        "two_stage_record11_plus_bTop3_1251": 91.9328,
+        "hybrid_record11_bw5_1251": 91.9679,
+        # === Старый рекорд (до two-stage) ===
         "blend_11_no_cb_extended_f": 91.9668,
         "blend_record11_plus_h_ft_1708": 91.9601,   # record_11 + 2 FT-T (Pipeline H)
         "blend_record11_plus_h_all_1708": 91.9247,  # record_11 + 2 FT-T + TabNet
