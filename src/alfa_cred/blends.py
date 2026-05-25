@@ -16,7 +16,20 @@
 
 from __future__ import annotations
 
-# Текущий рекорд LB = 91.9668. Состав:
+# НОВЫЙ РЕКОРД LB = 91.9939 (Pipeline K, two-stage):
+# для запросов подзадачи A (есть pil1mtrx_offer=1) → blend record_11 + hard-rule
+# для запросов подзадачи B (нет pil1mtrx_offer) → xgb_b_default (B-only XGB)
+# Файл: two_stage_record11_plus_bTop1_1251.csv
+# Прирост +0.0271 от предыдущего рекорда 91.9668.
+# Ключевая идея: B-only XGB обученный ТОЛЬКО на 34% запросов подзадачи B
+# даёт лучший сигнал для этих запросов чем record_11, обученный на всём train.
+RECORD_TWO_STAGE_LB_91_9939 = {
+    "subtask_a_blend": "record_11",          # rank-avg blend record_11
+    "subtask_b_model": "xgb_b_default_1244",  # B-only XGB на 12,650 B-train запросах
+    "lb": 91.9939,
+}
+
+# Предыдущий рекорд LB = 91.9668. Состав:
 # 11 моделей с CV NDCG@5 в диапазоне 0.9155 - 0.9170, выбранных по принципу
 # «все модели сильнее эмпирической границы CV ≈ 0.913 — а cb_yetirank_extended
 # с CV 0.9128 убран, потому что размывал blend (его исключение дало +0.02 на LB)».
@@ -93,6 +106,8 @@ KNOWN_WEAK_MODELS = (
 def expected_lb_score(blend_name: str) -> float | None:
     """Возвращает зафиксированный LB-результат для известного blend'а."""
     return {
+        "two_stage_record11_plus_bTop1_1251": 91.9939,  # НОВЫЙ РЕКОРД (Pipeline K)
+        "hybrid_record11_bw5_1251": 91.9679,            # B-blend 50/50 с record для B запросов
         "blend_11_no_cb_extended_f": 91.9668,
         "blend_record11_plus_h_ft_1708": 91.9601,   # record_11 + 2 FT-T (Pipeline H)
         "blend_record11_plus_h_all_1708": 91.9247,  # record_11 + 2 FT-T + TabNet
@@ -103,6 +118,10 @@ def expected_lb_score(blend_name: str) -> float | None:
         "lgbm_epoch_post_2025": 91.4377,            # CV 0.9521 (sub) → LB провал
         "lgbm_boot_v_s256_2202": 91.8774,           # CV 0.9165 → LB КОРОЛЬ одиночек
         "lgbm_extended_features": 91.8648,          # CV 0.9165 → LB сильный
+        "xgb_deep_optuna_0532": 91.8349,            # CV 0.9181 (новый рекорд CV!) → LB слабый, переобучение Optuna
+        "blend_record11_plus_j_xgb_0617": 91.9418,        # record_11 + XGB Optuna → -0.025
+        "blend_record10_no_weak_plus_top3_0617": 91.9547, # без extended_seed123 + top-3 новых → -0.012
+        "blend_record11_plus_j_lbweighted_0617": 91.9354, # LB-weighted blend → -0.031
         "cb_deep_optuna_2342": 91.8477,             # CV 0.9167 → LB второй
         "xgb_rank_ndcg_20260523_0621": 91.8215,
         "cb_yetirank_tuned_20260523_0422": 91.8049,
