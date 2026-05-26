@@ -138,3 +138,32 @@ def make_groups(df: pd.DataFrame, request_col: str = REQUEST_ID) -> np.ndarray:
 def sort_by_request(df: pd.DataFrame, request_col: str = REQUEST_ID) -> pd.DataFrame:
     """Стабильная сортировка по `request_id`. Нужна перед `make_groups`."""
     return df.sort_values(request_col, kind="stable").reset_index(drop=True)
+
+
+def encode_categoricals_inplace(
+    train_df: pd.DataFrame,
+    test_df: pd.DataFrame,
+    cat_cols: Iterable[str],
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Кодирует категориальные колонки общими целочисленными кодами на train+test.
+
+    Объединяет колонку из train и test, переводит в pandas Category,
+    берёт `cat.codes + 1` (резервируем 0 под пропуски). Возвращает оба
+    датафрейма с заменёнными колонками типа int32.
+
+    Используется для B-only моделей в Pipeline K, где XGBoost и LGBM
+    требуют численного кодирования; CatBoost умеет сам, но для
+    единообразия pipeline'а всё кодируем одинаково.
+    """
+    for col in cat_cols:
+        if col not in train_df.columns:
+            continue
+        combined = pd.concat(
+            [train_df[col].astype(object), test_df[col].astype(object)],
+            axis=0,
+            ignore_index=True,
+        )
+        codes = combined.astype("category").cat.codes + 1
+        train_df[col] = codes.iloc[: len(train_df)].reset_index(drop=True).astype("int32").values
+        test_df[col] = codes.iloc[len(train_df):].reset_index(drop=True).astype("int32").values
+    return train_df, test_df
