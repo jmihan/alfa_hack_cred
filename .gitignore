@@ -67,6 +67,8 @@ reports/
 # AI assistant tooling
 .claude/
 CLAUDE.md
+CONTINUATION_PROMPT.md
+FINALIZATION_PROMPT.md
 .aider*
 .cursorrules
 .cursor/
