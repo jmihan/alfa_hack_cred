@@ -106,14 +106,29 @@ KNOWN_WEAK_MODELS = (
 def expected_lb_score(blend_name: str) -> float | None:
     """Возвращает зафиксированный LB-результат для известного blend'а."""
     return {
-        # === НОВЫЙ РЕКОРД: bMega (35 моделей K+L+M+N) ===
-        "two_stage_record11_plus_bMega_0245": 92.0432,        # РЕКОРД! Все K+L+M+N включая distill+crossobj
+        # === ФИНАЛЬНЫЙ РЕКОРД 92.0504 (bBalanced + pseudo + crossobj, 16 моделей) ===
+        "two_stage_r11_bBalanced_plus_pseudo_crossobj_1405": 92.0504,  # ФИНАЛЬНЫЙ РЕКОРД!
+        "two_stage_record11_plus_bBalanced_plus_bO_0622": 92.0494,  # 18 моделей
+        "three_stage_v2c_megaRA_with_subgOt2_1300": 92.0486,        # subg_ot2 в mega-pool только для RA
+        "two_stage_record11_plus_bAllKLMNOP_0826": 92.0458,
+        "two_stage_record11_plus_bMega_0245": 92.0432,        # bMega (35 моделей K+L+M+N)
+        "two_stage_r11_top1each_plus_psV2_crossobj_1405": 92.0414,  # ultra-clean 8 моделей
+        "two_stage_r11_bBalanced_plus_crossobj_1405": 92.0398,
+        "two_stage_r11_bBalanced_plus_pseudo_1405": 92.0384,
+        "three_stage_r11_bBalancedO_plus_subgOt2_added_RA_1405": 92.0347,
+        "two_stage_r11_bBalanced_plus_O_Puseful_1405": 92.0298,    # P useful добавили шум
+        "two_stage_r11_bMega_no_distill_1405": 92.029,             # distill реально вкладывал +0.014!
         "two_stage_record11_plus_bBalanced_0229": 92.0317,    # top-3 каждого типа (12 моделей)
         "two_stage_record11_plus_bKLM_plus_crossobj_0245": 92.0324,  # KLM + 2 crossobj (31)
         "two_stage_record11_plus_bKLM_plus_pseudo_0245": 92.0288,   # KLM + 3 pseudo (32)
         "two_stage_record11_plus_bFull_0229": 92.0263,        # K+L+M (34, без N)
         "two_stage_record11_plus_bMnew_0229": 92.0232,        # только M (22, без K/L/N)
         "two_stage_record11_plus_bL_plus_Mcb_0229": 91.9293,  # ПРОВАЛ -0.07: CB не сочетается с bAllL
+        "two_stage_record11_plus_bAllKLMNO_0622": 92.0386,    # 38 моделей (без P)
+        "three_stage_record11_plus_bSubgOt2_plus_bMega_1204": 92.0156,  # drastic замена RA → провал
+        "three_stage_v2b_subgOt2_50mega_RA_only_1300": 92.0156,
+        "three_stage_v2a_subgBoth_1300": 91.3545,             # КАТАСТРОФА: subg_ot1 как замена
+        "two_stage_record11_plus_bN_0245": 89.7603,           # МЕГА-КАТАСТРОФА: только N без других
         # === Pipeline L: ПРОБИТО 92+ через multi-seed B-only XGB + LGBM ===
         "two_stage_record11_plus_bAllL_1914": 92.0006,        # 5 XGB Optuna + 1 LGBM ext
         "two_stage_record11_plus_bAllXGB_1914": 91.9765,      # 5 multi-seed XGB Optuna
