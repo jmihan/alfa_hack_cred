@@ -11,7 +11,10 @@
 - LGBM Optuna → 91.7512
 - LGBM extended features → 91.8648
 - blend (mega_strong_only_d, 12 моделей) → 91.9471
-- **blend (11 моделей без cb_extended) → 91.9668 ← текущий рекорд**
+- blend (11 моделей без cb_extended) → 91.9668
+- two-stage K (record_11 + xgb_b_default) → 91.9939
+- two-stage M (record_11 + bBalanced) → 92.0317
+- **two-stage финал (record_11 + bBalanced + pseudo + crossobj) → 92.0504**
 """
 
 from __future__ import annotations
@@ -29,10 +32,48 @@ RECORD_TWO_STAGE_LB_91_9939 = {
     "lb": 91.9939,
 }
 
+# ФИНАЛЬНЫЙ РЕКОРД LB = 92.0504 (two-stage):
+# - Подзадача A (есть pil1mtrx_offer=1 в группе, ~66% запросов):
+#   rank-avg blend RECORD_11_MODELS_LB_91_9668 + hard-rule (+1.0 за pil1mtrx=1).
+# - Подзадача B (нет pil1mtrx, ~34% запросов):
+#   rank-avg blend RECORD_FINAL_92_0504_B_MODELS (16 B-only моделей).
+# Файл: submissions/two_stage_r11_bBalanced_plus_pseudo_crossobj_1405.csv
+# Прирост +0.0187 от Pipeline M (92.0317) и +0.057 от старого рекорда 91.9668.
+# Состав B-only blend — top-3 каждого типа архитектуры (bBalanced) + два
+# pseudo-labeling XGB + две модели с альтернативной целевой функцией
+# (xgb_pairwise и lgbm_xendcg). Эмпирически такой размер blend (16) оказался
+# оптимальным: больше — размывает, меньше — теряет диверсификацию.
+RECORD_FINAL_92_0504_B_MODELS = (
+    # bBalanced: top-3 каждого типа архитектуры (Pipeline M, 12 моделей)
+    # CatBoost YetiRank seeds:
+    "cb_b_m_s777_0029",
+    "cb_b_m_s8848_0057",
+    "cb_b_m_s42_0018",
+    # LightGBM bootstrap seeds:
+    "lgbm_b_m_s256_0106",
+    "lgbm_b_m_s628_0113",
+    "lgbm_b_m_s2024_0119",
+    # XGBoost multi-seed:
+    "xgb_b_m_s314_0126",
+    "xgb_b_m_s8848_0128",
+    "xgb_b_m_s42_0122",
+    # LightGBM Optuna seeds:
+    "lgbm_b_optuna_s42_0219",
+    "lgbm_b_optuna_s314_0225",
+    "lgbm_b_optuna_s137_0222",
+    # Pseudo-labeling XGB (Pipeline N, 2 модели):
+    "xgb_b_pseudo_s42_0232",
+    "xgb_b_pseudo_s137_0234",
+    # Cross-objective диверсификация (Pipeline N, 2 модели):
+    "xgb_b_pairwise_0241",
+    "lgbm_b_xendcg_0243",
+)
+
 # Предыдущий рекорд LB = 91.9668. Состав:
 # 11 моделей с CV NDCG@5 в диапазоне 0.9155 - 0.9170, выбранных по принципу
 # «все модели сильнее эмпирической границы CV ≈ 0.913 — а cb_yetirank_extended
 # с CV 0.9128 убран, потому что размывал blend (его исключение дало +0.02 на LB)».
+# Используется на подзадаче A в финальном two-stage сабмите.
 RECORD_11_MODELS_LB_91_9668 = (
     "lgbm_extended_tuned_seed42_20260523_0226",
     "lgbm_extended_tuned_seed123_20260523_0245",

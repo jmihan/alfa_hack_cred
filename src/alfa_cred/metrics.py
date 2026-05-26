@@ -89,3 +89,31 @@ def fast_mean_ndcg_at_5(
         }
     )
     return mean_ndcg_at_5(df)
+
+
+def compute_b_ndcg5(
+    df: pd.DataFrame,
+    score_col: str = "score",
+    target_col: str = TARGET,
+    request_col: str = REQUEST_ID,
+    pil_col: str = "pil1mtrx_offer",
+) -> float:
+    """NDCG@5 на подзадаче B (запросы без `pil1mtrx_offer=1`).
+
+    На подзадаче A метрика всегда близка к 1.0 за счёт hard-rule, поэтому
+    она «скрывает» реальный прирост модели. Этот хелпер фильтрует df на
+    «трудные» запросы и считает NDCG@5 только на них — это даёт честную
+    оценку B-only модели.
+    """
+    # Локальный импорт, чтобы не создавать цикл metrics <-> subtasks.
+    from alfa_cred.subtasks import filter_subtask_b
+
+    df_b = filter_subtask_b(df, pil_col=pil_col)
+    if score_col != "score":
+        df_b = df_b.rename(columns={score_col: "score"})
+    return mean_ndcg_at_5(
+        df_b,
+        request_col=request_col,
+        score_col="score",
+        target_col=target_col,
+    )
