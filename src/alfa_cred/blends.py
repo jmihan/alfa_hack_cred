@@ -149,6 +149,14 @@ def expected_lb_score(blend_name: str) -> float | None:
     return {
         # === ФИНАЛЬНЫЙ РЕКОРД 92.0504 (bBalanced + pseudo + crossobj, 16 моделей) ===
         "two_stage_r11_bBalanced_plus_pseudo_crossobj_1405": 92.0504,  # ФИНАЛЬНЫЙ РЕКОРД!
+        # === Pipeline R: drop-7 (PSI scan) — НЕ помог на наших top-моделях ===
+        # У пользователя drop-43 на 342 фичах давал прирост, но у нас в feature_cols
+        # пересекается только 7 фич (остальные не прошли fill_rate >= 0.5 фильтр).
+        # Главные дрейфующие фичи у нас — `rate`, `eva_perc_grp_*`, `rate_grp_*` —
+        # не были в этом drop-сете.
+        "two_stage_drop43_bNew_record_orig": 92.0428,        # 16 новых B + старые record
+        "two_stage_drop43_bNew_recordMixed": 92.0421,        # + 5 новых record
+        "two_stage_drop43_bMegaNew_plus_Old": 92.0365,       # mega 32 модели B
         "two_stage_record11_plus_bBalanced_plus_bO_0622": 92.0494,  # 18 моделей
         "three_stage_v2c_megaRA_with_subgOt2_1300": 92.0486,        # subg_ot2 в mega-pool только для RA
         "two_stage_record11_plus_bAllKLMNOP_0826": 92.0458,
