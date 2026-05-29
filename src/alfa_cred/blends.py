@@ -152,7 +152,10 @@ def expected_lb_score(blend_name: str) -> float | None:
         # MIX 16 моделей drop-5 + 16 моделей drop-7 = 32 модели дают РЕКОРД 92.0532.
         # Diversity через разные feature subsets — новая форма diversity, которая
         # сильнее одиночного drop-варианта.
-        "two_stage_drop5_plus_drop7_bNew_record_orig": 92.0532,  # НОВЫЙ РЕКОРД! 32 модели
+        "two_stage_drop5_plus_drop7_bNew_record_orig": 92.0532,  # РЕКОРД! 32 модели (2 subsets)
+        "two_stage_5subsets_bNew_1023": 92.0532,                 # 80 моделей (5 subsets) — равно рекорду
+        "two_stage_3subsets_d5_d7_d2_1023": 92.0389,             # 3 subsets — хуже на -0.014
+        "two_stage_drop2_9_time_bNew_1023": 92.0378,             # только новые 3 subsets — хуже
         "two_stage_r11_bBalanced_plus_pseudo_crossobj_1405": 92.0504,  # Предыдущий рекорд
         "two_stage_drop7grp_bNew_record_orig": 92.0296,        # одиночный drop-7 хуже
         # === Pipeline R: drop-7 (PSI scan) — НЕ помог одиночно ===
