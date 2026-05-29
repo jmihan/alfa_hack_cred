@@ -69,6 +69,7 @@ reports/
 CLAUDE.md
 CONTINUATION_PROMPT.md
 FINALIZATION_PROMPT.md
+AUTOML_PROMPT.md
 .aider*
 .cursorrules
 .cursor/
