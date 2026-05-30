@@ -1,0 +1,54 @@
+# Виртуальные окружения
+.venv/
+.venv_automl/
+venv/
+env/
+
+# Данные и артефакты — монтируются как volume, не в образ
+data/
+task/
+submissions/
+oof/
+mlruns/
+mlflow.db
+reports/
+catboost_info/
+
+# Git и кэши
+.git/
+.gitignore
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Ноутбуки монтируются как volume (notebook-сервис)
+notebooks/
+
+# Модели и чекпойнты
+*.pkl
+*.joblib
+*.pt
+*.pth
+*.onnx
+
+# AI-tooling и приватные промпты (никогда не в образ)
+.claude/
+CLAUDE.md
+*_PROMPT.md
+alfa_credit_v3/
+.cursor/
+.cursorrules
+
+# IDE / ОС / логи
+.vscode/
+.idea/
+*.log
+*.tmp
+*.bak
+.DS_Store
+Thumbs.db
