@@ -1,9 +1,9 @@
 # Образ для воспроизведения пайплайна ранжирования кредитных офферов.
 #
-# CPU по умолчанию (рекордный B-бленд считается на CPU и так воспроизводит LB).
-# Данные и артефакты внутрь образа НЕ кладём — монтируются как volume (см.
-# docker-compose.yml). GPU-вариант — опционально, через --gpus all и базовый
-# CUDA-образ (см. секцию «Запуск в Docker» в README).
+# CPU по умолчанию (всё обучается на CPU и воспроизводит LB-скор). Данные и
+# артефакты (./data, ./models, ./submissions, ...) внутрь образа НЕ кладём —
+# монтируются как volume (см. docker-compose.yml). torch ставится CPU-сборкой.
+# GPU-вариант — опционально, через --gpus all + CUDA-образ (см. README).
 
 FROM python:3.11-slim-bookworm
 
@@ -17,13 +17,17 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_DEFAULT_TIMEOUT=120 \
-    PIP_RETRIES=10
+    PIP_RETRIES=10 \
+    KMP_DUPLICATE_LIB_OK=TRUE
 
 WORKDIR /app
 
-# Зависимости — отдельным слоем, чтобы кэшировались при изменениях кода.
+# Зависимости — отдельным слоем (кэшируется при изменениях кода). torch — CPU-сборка
+# (без CUDA-библиотек: легче образ и не нужна GPU на машине организаторов).
 COPY requirements.txt ./
-RUN pip install --upgrade pip && pip install -r requirements.txt
+RUN pip install --upgrade pip \
+    && pip install torch==2.3.1 --index-url https://download.pytorch.org/whl/cpu \
+    && pip install -r requirements.txt
 
 # Пакет и точки входа.
 COPY pyproject.toml README.md ./
@@ -32,5 +36,5 @@ COPY scripts ./scripts
 COPY configs ./configs
 RUN pip install -e .
 
-# По умолчанию — сборка финального сабмита (нужны смонтированные data/ и oof/).
-CMD ["python", "scripts/predict.py", "--out", "submissions/record_submission.csv"]
+# По умолчанию — полное обучение пайплайна с нуля + сабмит (нужен смонтированный ./data).
+CMD ["python", "scripts/fit_pipeline.py", "--out", "submissions/record_submission.csv"]

@@ -12,6 +12,7 @@ SUBMISSIONS_DIR: Path = PROJECT_ROOT / "submissions"
 MLRUNS_DIR: Path = PROJECT_ROOT / "mlruns"
 OOF_DIR: Path = PROJECT_ROOT / "oof"
 CONFIGS_DIR: Path = PROJECT_ROOT / "configs"
+MODELS_DIR: Path = PROJECT_ROOT / "models"  # обученные модели рекордного пайплайна (train -> inference)
 
 # Файлы данных
 TRAIN_PATH: Path = DATA_DIR / "train_dataset_small.pq"
