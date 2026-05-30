@@ -12,6 +12,7 @@ dist/
 
 # Virtual environments
 .venv/
+.venv_automl/
 venv/
 env/
 ENV/
@@ -44,6 +45,7 @@ submissions/
 # ML artifacts
 mlruns/
 mlflow.db
+catboost_info/
 *.pkl
 *.joblib
 *.ckpt
@@ -69,6 +71,10 @@ reports/
 CLAUDE.md
 CONTINUATION_PROMPT.md
 FINALIZATION_PROMPT.md
+AUTOML_PROMPT.md
+PLAN_FOR_NEW_BEST.md
+REFACTOR_PROMPT.md
+alfa_credit_v3/
 .aider*
 .cursorrules
 .cursor/

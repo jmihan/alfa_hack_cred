@@ -147,8 +147,21 @@ KNOWN_WEAK_MODELS = (
 def expected_lb_score(blend_name: str) -> float | None:
     """Возвращает зафиксированный LB-результат для известного blend'а."""
     return {
-        # === ФИНАЛЬНЫЙ РЕКОРД 92.0504 (bBalanced + pseudo + crossobj, 16 моделей) ===
-        "two_stage_r11_bBalanced_plus_pseudo_crossobj_1405": 92.0504,  # ФИНАЛЬНЫЙ РЕКОРД!
+        # === НОВЫЙ РЕКОРД 92.0532 (Pipeline R2, diversity через два feature subsets) ===
+        # КЛЮЧЕВОЕ ОТКРЫТИЕ: одиночный drop-7 даёт 92.03 (хуже рекорда), но
+        # MIX 16 моделей drop-5 + 16 моделей drop-7 = 32 модели дают РЕКОРД 92.0532.
+        # Diversity через разные feature subsets — новая форма diversity, которая
+        # сильнее одиночного drop-варианта.
+        "two_stage_drop5_plus_drop7_bNew_record_orig": 92.0532,  # РЕКОРД! 32 модели (2 subsets)
+        "two_stage_5subsets_bNew_1023": 92.0532,                 # 80 моделей (5 subsets) — равно рекорду
+        "two_stage_3subsets_d5_d7_d2_1023": 92.0389,             # 3 subsets — хуже на -0.014
+        "two_stage_drop2_9_time_bNew_1023": 92.0378,             # только новые 3 subsets — хуже
+        "two_stage_r11_bBalanced_plus_pseudo_crossobj_1405": 92.0504,  # Предыдущий рекорд
+        "two_stage_drop7grp_bNew_record_orig": 92.0296,        # одиночный drop-7 хуже
+        # === Pipeline R: drop-7 (PSI scan) — НЕ помог одиночно ===
+        "two_stage_drop43_bNew_record_orig": 92.0428,
+        "two_stage_drop43_bNew_recordMixed": 92.0421,
+        "two_stage_drop43_bMegaNew_plus_Old": 92.0365,
         "two_stage_record11_plus_bBalanced_plus_bO_0622": 92.0494,  # 18 моделей
         "three_stage_v2c_megaRA_with_subgOt2_1300": 92.0486,        # subg_ot2 в mega-pool только для RA
         "two_stage_record11_plus_bAllKLMNOP_0826": 92.0458,
