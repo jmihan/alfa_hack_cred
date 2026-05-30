@@ -30,6 +30,7 @@ from alfa_cred.features.group import (
     add_subgroup_ranks,
     add_variant_position_features,
 )
+from alfa_cred.features.match import add_match_features, add_pareto_features
 from alfa_cred.features.time import add_time_features
 from alfa_cred.io_utils import (
     downcast_numeric,
@@ -77,6 +78,8 @@ def build_feature_table(
     merged = add_pairwise_diffs(merged)
     merged = add_variant_position_features(merged)
     merged = add_cross_features(merged)
+    merged = add_match_features(merged)
+    merged = add_pareto_features(merged)
     merged = add_indicator_features(merged)
     merged = add_basket_features(merged)
     merged = add_time_features(merged)
