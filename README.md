@@ -174,6 +174,40 @@ pip install -e .
 - `feature_description.csv`
 - `commit.csv` (пример сабмита)
 
+## Запуск в Docker
+
+Образ ([`Dockerfile`](Dockerfile)) собирает Python 3.11 + зависимости + пакет
+(`pip install -e .`). Данные и артефакты внутрь образа не кладутся — монтируются
+как volume (`./data`, `./oof`, `./submissions`, `./mlruns`, `./reports`,
+`./notebooks`). Режимы запуска — через профили [`docker-compose.yml`](docker-compose.yml):
+
+```powershell
+docker compose build                     # собрать образ alfa-cred:latest
+
+docker compose run --rm inference        # финальный сабмит (LB ≈ 92.18); нужны ./data и ./oof
+docker compose run --rm train            # CV одиночной модели (по умолчанию lgbm_extended; логи в ./mlruns)
+docker compose run --rm interpret        # SHAP + permutation (графики в ./reports/interpretation)
+# другой конфиг для train: TRAIN_CONFIG=configs/lgbm_optuna.yaml docker compose run --rm train
+
+docker compose --profile mlflow up       # MLflow UI -> http://localhost:5000
+docker compose --profile notebook up     # Jupyter -> http://localhost:8888
+```
+
+**GPU (опционально).** Рекорд считается на CPU, поэтому образ по умолчанию
+CPU-only. Для GPU соберите образ на CUDA-базе, раскомментируйте `deploy.resources`
+в `docker-compose.yml` и запускайте с `--gpus all`; CatBoost/XGBoost тогда
+переключаются на GPU параметрами (`task_type='GPU'`, `device='cuda'`), LightGBM
+остаётся на CPU. Без GPU всё работает как есть (CPU-fallback).
+
+**За корпоративным VPN/файрволом.** Если сборка падает с SSL-ошибкой при доступе
+к pypi (`SSL: UNEXPECTED_EOF_WHILE_READING`), соберите образ через host-сеть и
+дальше запускайте сервисы как обычно (compose возьмёт готовый `alfa-cred:latest`):
+
+```powershell
+docker build --network=host -t alfa-cred:latest .
+docker compose run --rm inference
+```
+
 ## Воспроизведение сабмитов
 
 ### Рекордный сабмит (LB ≈ 92.18)
