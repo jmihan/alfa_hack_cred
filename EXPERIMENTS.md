@@ -1,7 +1,7 @@
 # Лог экспериментов
 
 Хронология ключевых направлений и pipeline-ов с цифрами CV/LB. Источник —
-заметки из ночных прогонов и таблица LB в [`src/alfa_cred/blends.py`](src/alfa_cred/blends.py).
+заметки из ночных прогонов; полная таблица LB всех сабмитов — в Приложении A ниже.
 Финальный результат — **LB ≈ 92.18** (рекордный пайплайн с фичей `is_best_both`
 и широким offer-набором; см. секции «Pipeline T» и «Рекордный пайплайн» ниже).
 Предыдущая стабильная веха — LB 92.0504.
@@ -333,9 +333,8 @@ bBalanced (12) + pseudo (2) + crossobj (2) = 16 моделей B-blend
 → LB 92.0504
 ```
 
-Состав зафиксирован в [`src/alfa_cred/blends.py`](src/alfa_cred/blends.py):
-`RECORD_FINAL_92_0504_B_MODELS`. Воспроизводится через
-[`scripts/make_final_submission.py`](scripts/make_final_submission.py).
+Состав: 16 B-only моделей (top-3 каждого типа архитектуры + 2 pseudo-labeling +
+2 cross-objective) — перечислены в Приложении B и в секциях Pipeline M/N выше.
 
 ## Топ-10 сабмитов по LB
 
@@ -390,3 +389,92 @@ bBalanced (12) + pseudo (2) + crossobj (2) = 16 моделей B-blend
 Bootstrap-вариативность даёт лучшую генерализацию, чем точная
 Optuna-настройка. CV полезен только для отсечки моделей ниже
 эмпирической границы 0.913, дальше — доверяй LB.
+
+## Приложение A. Полная таблица сабмитов (LB)
+
+Зафиксированный LB-результат каждого сабмита за весь ход экспериментов
+(NDCG@5 × 100). Сгруппировано по фазам.
+
+| Сабмит / бленд | LB | Состав / заметка |
+|----------------|----|------------------|
+| candidate_selfcontained (pointwise-MLP) | **92.1957** | A=наш + B=0.70·b_blend+0.30·MLP — финальный рекорд |
+| two_stage_drop5_plus_drop7_bNew | 92.0532 | mix 32 модели (drop-5 + drop-7 subsets) |
+| two_stage_5subsets_bNew | 92.0532 | 80 моделей (5 subsets) — равно рекорду фазы |
+| two_stage_r11_bBalanced_plus_pseudo_crossobj | 92.0504 | record_11 + bBalanced(12)+pseudo(2)+crossobj(2) |
+| two_stage_record11_plus_bBalanced_plus_bO | 92.0494 | 18 моделей (bBalanced + Pipeline O) |
+| three_stage_v2c_megaRA_with_subgOt2 | 92.0486 | subg_ot2 в mega-pool только для RA |
+| two_stage_record11_plus_bAllKLMNOP | 92.0458 | 51 B-модель всех pipeline |
+| two_stage_drop43_bNew_record_orig | 92.0428 | drop-43 (PSI scan) — не помог одиночно |
+| two_stage_record11_plus_bMega | 92.0432 | bMega = K+L+M+N (35 моделей) |
+| two_stage_r11_top1each_plus_psV2_crossobj | 92.0414 | ultra-clean 8 моделей |
+| two_stage_r11_bBalanced_plus_crossobj | 92.0398 | bBalanced + crossobj без pseudo |
+| two_stage_record11_plus_bAllKLMNO | 92.0386 | 38 моделей (без P) |
+| two_stage_r11_bBalanced_plus_pseudo | 92.0384 | bBalanced + pseudo без crossobj |
+| two_stage_3subsets_d5_d7_d2 | 92.0389 | 3 subsets — хуже mix на −0.014 |
+| two_stage_drop2_9_time_bNew | 92.0378 | только новые 3 subsets — хуже |
+| three_stage_r11_bBalancedO_plus_subgOt2 | 92.0347 | three-stage variant |
+| two_stage_record11_plus_bKLM_plus_crossobj | 92.0324 | KLM + 2 crossobj (31) |
+| two_stage_record11_plus_bBalanced (12) | 92.0317 | top-3 каждого типа (Pipeline M) |
+| two_stage_drop7grp_bNew_record_orig | 92.0296 | одиночный drop-7 хуже mix |
+| two_stage_record11_plus_bKLM_plus_pseudo | 92.0288 | KLM + 3 pseudo (32) |
+| two_stage_record11_plus_bFull (K+L+M) | 92.0263 | 34 модели (без N) |
+| two_stage_record11_plus_bMnew | 92.0232 | только M (22, без K/L/N) |
+| two_stage_record11_plus_bAllL | 92.0006 | 5 XGB Optuna + 1 LGBM ext (Pipeline L) |
+| two_stage_record11_plus_bTop1 | 91.9939 | xgb_b_default одиночка — прорыв two-stage (K) |
+| two_stage_record11_plus_bAllXGB | 91.9765 | 5 multi-seed XGB Optuna |
+| hybrid_record11_bw5 | 91.9679 | гибрид record + B-only (хуже чистой замены) |
+| blend_11_no_cb_extended (record_11) | 91.9668 | прежний рекорд до two-stage |
+| blend_record11_plus_h_ft | 91.9601 | record_11 + 2 FT-Transformer (Pipeline H) |
+| blend_record11_plus_i_cb | 91.9497 | record_11 + cb_deep_optuna (Pipeline I) |
+| blend_mega_strong_only_d | 91.9471 | mega-blend 12 моделей (Pipeline D) |
+| blend_12_plus_e_top3 | 91.9427 | 12 + top-3 Pipeline E |
+| blend_record11_plus_i_all | 91.9414 | record_11 + 4 модели Pipeline I |
+| blend_record11_plus_j_xgb | 91.9418 | record_11 + XGB Optuna → −0.025 |
+| blend_record11_plus_j_lbweighted | 91.9354 | LB-weighted blend → −0.031 |
+| blend_record11_plus_h_all | 91.9247 | record_11 + 2 FT-T + TabNet → −0.042 |
+| two_stage_record11_plus_bL_plus_Mcb | 91.9293 | ПРОВАЛ −0.07: CB не сочетается с bAllL |
+| lgbm_boot_v_s256 (одиночка) | 91.8774 | CV 0.9165 — король одиночек |
+| lgbm_extended_features (одиночка) | 91.8648 | CV 0.9165 |
+| cb_deep_optuna (одиночка) | 91.8477 | CV 0.9167 |
+| xgb_deep_optuna (одиночка) | 91.8349 | CV 0.9181 (рекорд CV) → LB слабый (переобучение) |
+| xgb_rank_ndcg (одиночка) | 91.8215 | CV 0.9163 |
+| cb_yetirank_tuned (одиночка) | 91.8049 | CV 0.9162 |
+| lgbm_extended_tuned_seed123 (одиночка) | 91.7962 | CV 0.9170 (топ CV) → LB слабее |
+| lgbm_optuna_30t (одиночка) | 91.7512 | Optuna 30 trials |
+| baseline_lgbm_lambdarank | 91.634 | бейзлайн |
+| ft_trans_seed42 (одиночка) | 91.4893 | CV 0.9129 → LB провал |
+| lgbm_epoch_post (одиночка) | 91.4377 | CV 0.9521 на сабсете → LB провал |
+| three_stage_v2a_subgBoth | 91.3545 | КАТАСТРОФА: subg_ot1 как замена RA |
+| tabnet_seed42 (одиночка) | 90.2362 | CV 0.8886 → катастрофа |
+| two_stage_record11_plus_bN | 89.7603 | МЕГА-ПРОВАЛ: только Pipeline N без других |
+
+## Приложение B. CV моделей record_11 и исключённые модели
+
+CV NDCG@5 (5-fold GroupKFold) каждой из 11 моделей A-бленда record_11
+(прежняя A-база; в финале заменена компактным 5-модельным A-блендом):
+
+| Модель | CV NDCG@5 |
+|--------|-----------|
+| lgbm_extended_tuned_seed42 | 0.9165 |
+| lgbm_extended_tuned_seed123 | 0.9170 |
+| lgbm_extended_tuned_seed777 | 0.9168 |
+| cb_yetirank_tuned | 0.9162 |
+| cb_yetirank_tuned_seed123 | 0.9158 |
+| xgb_rank_ndcg | 0.9163 |
+| cb_pairlogit | 0.9160 |
+| lgbm_pseudo_label | 0.9161 |
+| lgbm_oof_full | 0.9165 |
+| lgbm_time_aware | 0.9159 |
+| lgbm_bootstrap | 0.9155 |
+
+**Эмпирическая граница CV ≈ 0.913**, ниже которой модель «размывает» blend
+(выведена сравнением blend из 12 моделей с cb_yetirank_extended (CV 0.9128) →
+91.9471 против 11 моделей без неё → 91.9668, разница +0.0197).
+
+Исключённые как «размывающие» (CV ниже границы или доказанный вред на LB):
+`cb_yetirank_extended` (0.9128), `lgbm_xendcg` (0.9081), `cb_queryrmse` (0.9102),
+`mlp_listnet` (0.9088), `mlp_distill` (0.7506, ошибочная дистилляция),
+`ft_trans_seed42/123` (0.9129/0.9119), `tabnet_seed42` (0.8886),
+`lgbm_epoch_post/pre` (CV завышен на сабсете), `cb_deep_optuna` (0.9167, но −0.017
+в blend — переобучение Optuna), `lgbm_adv_pruned`/`lgbm_stacking_v2` (stacking
+переобучается на OOF).
