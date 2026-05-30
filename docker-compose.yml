@@ -1,0 +1,83 @@
+# Режимы запуска пайплайна. Все сервисы используют один образ (alfa-cred:latest)
+# и монтируют данные/артефакты как volume. Запуск конкретного режима — по профилю:
+#
+#   docker compose build
+#   docker compose run --rm inference      # сборка финального сабмита (LB ≈ 92.18)
+#   docker compose run --rm train          # обучение/CV по YAML-конфигу
+#   docker compose run --rm interpret      # SHAP + permutation интерпретация
+#   docker compose --profile mlflow up     # MLflow UI на http://localhost:5000
+#   docker compose --profile notebook up   # Jupyter на http://localhost:8888
+#
+# Данные должны лежать в ./data, A-сторона рекорда — в ./oof (см. README).
+
+name: alfa-cred
+
+x-common: &common
+  build:
+    context: .
+    dockerfile: Dockerfile
+  image: alfa-cred:latest
+  working_dir: /app
+  environment:
+    PYTHONUNBUFFERED: "1"
+  volumes:
+    - ./data:/app/data
+    - ./oof:/app/oof
+    - ./submissions:/app/submissions
+    - ./mlruns:/app/mlruns
+    - ./reports:/app/reports
+    - ./configs:/app/configs
+    - ./notebooks:/app/notebooks
+  # GPU (опционально): раскомментировать и запускать с CUDA-совместимым образом.
+  # Рекорд считается на CPU, поэтому по умолчанию выключено.
+  # deploy:
+  #   resources:
+  #     reservations:
+  #       devices:
+  #         - driver: nvidia
+  #           count: all
+  #           capabilities: [gpu]
+
+services:
+  # Сборка финального two-stage сабмита (обучает B-бленд, ~15-20 мин на CPU).
+  inference:
+    <<: *common
+    profiles: ["inference"]
+    command: ["python", "scripts/predict.py", "--out", "submissions/record_submission.csv"]
+
+  # Обучение и CV одиночной модели по YAML-конфигу + логирование в MLflow.
+  # По умолчанию — сильнейшая одиночка (extended features, CV 0.9165). Конфиг можно
+  # переопределить: TRAIN_CONFIG=configs/lgbm_optuna.yaml docker compose run --rm train
+  train:
+    <<: *common
+    profiles: ["train"]
+    command: ["python", "scripts/train.py", "--config", "${TRAIN_CONFIG:-configs/lgbm_extended.yaml}"]
+
+  # Интерпретация B-модели: SHAP + group-aware permutation на NDCG@5.
+  interpret:
+    <<: *common
+    profiles: ["interpret"]
+    command: ["python", "scripts/explain.py"]
+
+  # MLflow UI поверх ./mlruns.
+  mlflow-ui:
+    <<: *common
+    profiles: ["mlflow"]
+    command: ["mlflow", "ui", "--host", "0.0.0.0", "--port", "5000", "--backend-store-uri", "mlruns/"]
+    ports:
+      - "5000:5000"
+
+  # Jupyter для EDA/ноутбуков (без токена — локальный запуск).
+  notebook:
+    <<: *common
+    profiles: ["notebook"]
+    command:
+      - "jupyter"
+      - "notebook"
+      - "--ip=0.0.0.0"
+      - "--port=8888"
+      - "--no-browser"
+      - "--allow-root"
+      - "--NotebookApp.token="
+    ports:
+      - "8888:8888"
