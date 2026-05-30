@@ -7,6 +7,7 @@ env/
 # Данные и артефакты — монтируются как volume, не в образ
 data/
 task/
+models/
 submissions/
 oof/
 mlruns/

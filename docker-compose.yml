@@ -2,13 +2,16 @@
 # и монтируют данные/артефакты как volume. Запуск конкретного режима — по профилю:
 #
 #   docker compose build
-#   docker compose run --rm inference      # сборка финального сабмита (LB ≈ 92.18)
-#   docker compose run --rm train          # обучение/CV по YAML-конфигу
+#   docker compose run --rm train          # обучить весь пайплайн С НУЛЯ + сохранить модели в ./models + сабмит
+#   docker compose run --rm inference      # собрать сабмит из обученных моделей (без обучения)
+#   docker compose run --rm cv             # обучение/CV одиночной модели по YAML-конфигу (эксперименты)
 #   docker compose run --rm interpret      # SHAP + permutation интерпретация
 #   docker compose --profile mlflow up     # MLflow UI на http://localhost:5000
 #   docker compose --profile notebook up   # Jupyter на http://localhost:8888
 #
-# Данные должны лежать в ./data, A-сторона рекорда — в ./oof (см. README).
+# Данные должны лежать в ./data. Полное воспроизведение рекорда с нуля:
+#   docker compose run --rm train          # ~50 мин: обучит и сохранит все модели, запишет сабмит
+# Дальнейшие пересборки сабмита — быстрый inference из ./models.
 
 name: alfa-cred
 
@@ -22,6 +25,7 @@ x-common: &common
     PYTHONUNBUFFERED: "1"
   volumes:
     - ./data:/app/data
+    - ./models:/app/models
     - ./oof:/app/oof
     - ./submissions:/app/submissions
     - ./mlruns:/app/mlruns
@@ -39,18 +43,24 @@ x-common: &common
   #           capabilities: [gpu]
 
 services:
-  # Сборка финального two-stage сабмита (обучает B-бленд, ~15-20 мин на CPU).
+  # Полное обучение рекордного пайплайна С НУЛЯ: A-бленд (5) + B-бленд (8) + MLP (3),
+  # сохранение моделей в ./models и запись сабмита (~50 мин на CPU).
+  train:
+    <<: *common
+    profiles: ["train"]
+    command: ["python", "scripts/fit_pipeline.py", "--out", "submissions/record_submission.csv"]
+
+  # Сборка сабмита из УЖЕ ОБУЧЕННЫХ моделей (./models), без обучения (~10 мин).
   inference:
     <<: *common
     profiles: ["inference"]
     command: ["python", "scripts/predict.py", "--out", "submissions/record_submission.csv"]
 
-  # Обучение и CV одиночной модели по YAML-конфигу + логирование в MLflow.
-  # По умолчанию — сильнейшая одиночка (extended features, CV 0.9165). Конфиг можно
-  # переопределить: TRAIN_CONFIG=configs/lgbm_optuna.yaml docker compose run --rm train
-  train:
+  # Обучение/CV одиночной модели по YAML-конфигу (эксперименты + MLflow).
+  # Конфиг переопределяется: TRAIN_CONFIG=configs/lgbm_optuna.yaml docker compose run --rm cv
+  cv:
     <<: *common
-    profiles: ["train"]
+    profiles: ["cv"]
     command: ["python", "scripts/train.py", "--config", "${TRAIN_CONFIG:-configs/lgbm_extended.yaml}"]
 
   # Интерпретация B-модели: SHAP + group-aware permutation на NDCG@5.
