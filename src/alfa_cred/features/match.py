@@ -29,6 +29,11 @@ from alfa_cred.config import REQUEST_ID, VARIANT_ID
 MATCH_PAIRS = (("limit", "req_loan_amount"), ("term", "req_term"))
 # Колонки для Парето-доминирования (меньше rate, больше limit, меньше ncl — лучше).
 PARETO_COLUMNS = ("rate", "limit", "ncl")
+# Признаки ask-match, создаваемые `add_match_features` (для сборки feature-набора).
+MATCH_FEATURE_COLUMNS = (
+    "lim_match", "term_match", "both_match", "dlim_abs", "dterm_abs",
+    "n_both", "is_uniq_both", "min_vn_both", "is_best_both", "vn_rank_in_both",
+)
 
 
 def add_match_features(df: pd.DataFrame, request_col: str = REQUEST_ID) -> pd.DataFrame:
@@ -66,16 +71,16 @@ def add_match_features(df: pd.DataFrame, request_col: str = REQUEST_ID) -> pd.Da
         df["both_match"].to_numpy() == 1, df[VARIANT_ID].to_numpy(), np.inf
     )
     grouped_vn = df.groupby(request_col, sort=False)["_vn_both"]
-    min_vn = grouped_vn.transform("min")
+    df["min_vn_both"] = grouped_vn.transform("min")
     df["is_best_both"] = (
-        (df["both_match"] == 1) & (df[VARIANT_ID] == min_vn)
+        (df["both_match"] == 1) & (df[VARIANT_ID] == df["min_vn_both"])
     ).astype("int8")
     df["vn_rank_in_both"] = np.where(
         df["both_match"].to_numpy() == 1,
         grouped_vn.rank(method="first").to_numpy(),
         0.0,
     ).astype("float32")
-    df["min_vn_both"] = min_vn.replace(np.inf, 0).astype("float32")
+    df["min_vn_both"] = df["min_vn_both"].replace(np.inf, 0).astype("float32")
     df.drop(columns=["_vn_both"], inplace=True)
     return df
 

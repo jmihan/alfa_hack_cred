@@ -264,8 +264,9 @@ both-подмножества). На полном B-бленде (honest time-sp
 ## Рекордный пайплайн (2026-05-30). Широкий offer-набор + B-бленд — LB ≈ 92.18
 
 После того как `is_best_both` подтвердился на LB, собрали отдельный рекордный
-B-бленд на **широком offer-наборе** (модуль [`features/offer_v3.py`](src/alfa_cred/features/offer_v3.py),
-361 признак). Отличия от основного `build_feature_table`:
+B-бленд на **широком offer-наборе** ([`build_wide_feature_table`](src/alfa_cred/features/pipeline.py),
+361 признак; внутригрупповые функции — в [`features/group.py`](src/alfa_cred/features/group.py)).
+Отличия от основного `build_feature_table`:
 
 - клиентские признаки мерджатся **целиком** (минус служебные `*_date`), без
   фильтра по заполненности — больше контекста на подзадаче B;
@@ -274,12 +275,12 @@ B-бленд на **широком offer-наборе** (модуль [`features
   Парето-доминирование, индикаторы `is_lowest_rate`/`is_highest_eva`/`is_max_limit`,
   и ask-match стек с `is_best_both`.
 
-**B-бленд** ([`models/record_b_blend.py`](src/alfa_cred/models/record_b_blend.py)):
+**B-бленд** ([`models/b_blend.py`](src/alfa_cred/models/b_blend.py)):
 8 моделей — LightGBM LambdaRank ×3 + XGBoost rank:ndcg ×3 + CatBoost YetiRank ×2,
 каждая обучается один раз на всех train-B заявках, скоры усредняются как
 перцентильные ранги внутри `request_id`.
 
-**Two-stage сборка** ([`scripts/make_record_submission.py`](scripts/make_record_submission.py)):
+**Two-stage сборка** ([`scripts/predict.py`](scripts/predict.py)):
 A = rank-avg blend record_11 + hard-rule (pil1 → верх), B = этот 8-модельный бленд.
 Итог — **LB ≈ 92.18**.
 

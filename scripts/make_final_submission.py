@@ -2,9 +2,9 @@
 
 Архитектура:
 - Подзадача A (есть `pil1mtrx_offer=1` в запросе) → rank-avg blend
-  из 11 моделей RECORD_11_MODELS_LB_91_9668 + hard-rule.
+  из 11 моделей `STAGE_A_BLEND_MODELS` + hard-rule.
 - Подзадача B (нет pil1mtrx_offer) → rank-avg blend из 16 B-only моделей
-  RECORD_FINAL_92_0504_B_MODELS (top-3 каждого типа + 2 pseudo + 2 crossobj).
+  `MILESTONE_B_BLEND_MODELS` (top-3 каждого типа + 2 pseudo + 2 crossobj).
 
 Скрипт читает заранее сохранённые `*_test_scores.parquet` из `oof/`,
 собирает сабмит и кладёт результат в `submissions/`.
@@ -25,7 +25,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from alfa_cred.blends import RECORD_11_MODELS_LB_91_9668, RECORD_FINAL_92_0504_B_MODELS
+from alfa_cred.blends import MILESTONE_B_BLEND_MODELS, STAGE_A_BLEND_MODELS
 from alfa_cred.config import OOF_DIR, SUBMISSION_SEPARATOR, SUBMISSIONS_DIR, TEST_PATH
 from alfa_cred.inference import build_two_stage_submission
 from alfa_cred.io_utils import (
@@ -102,10 +102,10 @@ def _diff_against_reference(generated: Path, reference: Path) -> None:
 def main() -> None:
     args = parse_args()
 
-    record_paths = _resolve_test_score_paths(RECORD_11_MODELS_LB_91_9668)
-    b_paths = _resolve_test_score_paths(RECORD_FINAL_92_0504_B_MODELS)
+    record_paths = _resolve_test_score_paths(STAGE_A_BLEND_MODELS)
+    b_paths = _resolve_test_score_paths(MILESTONE_B_BLEND_MODELS)
     LOG.info(
-        "Готовлю two-stage сабмит: A=record_11 (%d моделей), B=bBalanced+pseudo+crossobj (%d моделей)",
+        "Готовлю two-stage сабмит: A-бленд (%d моделей), B-бленд (%d моделей)",
         len(record_paths), len(b_paths),
     )
 
