@@ -23,16 +23,24 @@ from alfa_cred.features.client import (
     select_client_features,
 )
 from alfa_cred.features.group import (
+    add_cross_offer_features,
+    add_growth_features,
     add_group_aggregates,
     add_group_ranks,
     add_group_size,
+    add_offer_rank_features,
     add_pairwise_diffs,
     add_subgroup_ranks,
     add_variant_position_features,
 )
-from alfa_cred.features.match import add_match_features, add_pareto_features
+from alfa_cred.features.match import (
+    MATCH_FEATURE_COLUMNS,
+    add_match_features,
+    add_pareto_features,
+)
 from alfa_cred.features.time import add_time_features
 from alfa_cred.io_utils import (
+    coerce_decimal_columns,
     downcast_numeric,
     filter_features_by_fill_rate,
     merge_features,
@@ -121,3 +129,60 @@ def feature_columns(
             # datetime, timedelta — пропускаем
             continue
     return feature_cols, categorical_cols
+
+
+def _wide_feature_list(df: pd.DataFrame) -> tuple[list[str], list[str]]:
+    """Список фич и категориальных колонок (object-типа) для широкого набора."""
+    drop = {APP_ID, "request_received", DATE_PART, REQUEST_ID, TARGET, "offer_id"}
+    feature_cols = [c for c in df.columns if c not in drop]
+    cat_cols = [c for c in feature_cols if df[c].dtype == object]
+    return feature_cols, cat_cols
+
+
+def _encode_wide_categoricals(
+    train: pd.DataFrame, test: pd.DataFrame, cat_cols: Iterable[str]
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Общая категориальная кодировка train+test (pandas Categorical)."""
+    for c in cat_cols:
+        s = pd.concat([train[c].astype("string"), test[c].astype("string")], ignore_index=True)
+        cats = pd.Categorical(s).categories
+        train[c] = pd.Categorical(train[c].astype("string"), categories=cats)
+        test[c] = pd.Categorical(test[c].astype("string"), categories=cats)
+    return train, test
+
+
+def build_wide_feature_table(
+    train: pd.DataFrame, test: pd.DataFrame, feats: pd.DataFrame
+) -> tuple[pd.DataFrame, pd.DataFrame, list[str], list[str]]:
+    """Широкий offer-набор для B-бленда подзадачи B.
+
+    В отличие от `build_feature_table`, клиентские признаки мерджатся целиком
+    (минус служебные `*_date`), без фильтра по заполненности — это даёт более
+    широкий контекст и оказалось сильнее на подзадаче B. Дальше — расширенные
+    внутригрупповые ранги/нормализации, кросс-офферные сравнения внутри типа и
+    уровня риска, Парето-доминирование и ask-match стек с `is_best_both`.
+
+    Порядок трансформаций зафиксирован — он влияет на состав/порядок колонок и,
+    как следствие, на воспроизводимость рекордного сабмита. Возвращает
+    `(train, test, feature_cols, cat_cols)`.
+    """
+    train = coerce_decimal_columns(train)
+    test = coerce_decimal_columns(test)
+    drop_feat = [c for c in feats.columns if c.endswith("_date")]
+    if drop_feat:
+        feats = feats.drop(columns=drop_feat)
+    train = train.merge(feats, on=[APP_ID, DATE_PART], how="left")
+    test = test.merge(feats, on=[APP_ID, DATE_PART], how="left")
+
+    train = add_offer_rank_features(train)
+    test = add_offer_rank_features(test)
+    train, test = add_cross_offer_features(train, test)
+    train = add_growth_features(train)
+    test = add_growth_features(test)
+    train = add_match_features(train)
+    test = add_match_features(test)
+
+    feature_cols, cat_cols = _wide_feature_list(train)
+    feature_cols = feature_cols + [c for c in MATCH_FEATURE_COLUMNS if c not in feature_cols]
+    train, test = _encode_wide_categoricals(train, test, cat_cols)
+    return train, test, feature_cols, cat_cols

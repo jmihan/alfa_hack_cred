@@ -34,16 +34,17 @@ RECORD_TWO_STAGE_LB_91_9939 = {
 
 # ФИНАЛЬНЫЙ РЕКОРД LB = 92.0504 (two-stage):
 # - Подзадача A (есть pil1mtrx_offer=1 в группе, ~66% запросов):
-#   rank-avg blend RECORD_11_MODELS_LB_91_9668 + hard-rule (+1.0 за pil1mtrx=1).
+#   rank-avg blend STAGE_A_BLEND_MODELS + hard-rule (+1.0 за pil1mtrx=1).
 # - Подзадача B (нет pil1mtrx, ~34% запросов):
-#   rank-avg blend RECORD_FINAL_92_0504_B_MODELS (16 B-only моделей).
+#   rank-avg blend MILESTONE_B_BLEND_MODELS (16 B-only моделей).
 # Файл: submissions/two_stage_r11_bBalanced_plus_pseudo_crossobj_1405.csv
 # Прирост +0.0187 от Pipeline M (92.0317) и +0.057 от старого рекорда 91.9668.
 # Состав B-only blend — top-3 каждого типа архитектуры (bBalanced) + два
 # pseudo-labeling XGB + две модели с альтернативной целевой функцией
 # (xgb_pairwise и lgbm_xendcg). Эмпирически такой размер blend (16) оказался
 # оптимальным: больше — размывает, меньше — теряет диверсификацию.
-RECORD_FINAL_92_0504_B_MODELS = (
+# (в логе экспериментов этот состав фигурирует как «bBalanced + pseudo + crossobj».)
+MILESTONE_B_BLEND_MODELS = (
     # bBalanced: top-3 каждого типа архитектуры (Pipeline M, 12 моделей)
     # CatBoost YetiRank seeds:
     "cb_b_m_s777_0029",
@@ -74,7 +75,8 @@ RECORD_FINAL_92_0504_B_MODELS = (
 # «все модели сильнее эмпирической границы CV ≈ 0.913 — а cb_yetirank_extended
 # с CV 0.9128 убран, потому что размывал blend (его исключение дало +0.02 на LB)».
 # Используется на подзадаче A в финальном two-stage сабмите.
-RECORD_11_MODELS_LB_91_9668 = (
+# (в логе экспериментов этот состав из 11 моделей фигурирует как «record_11».)
+STAGE_A_BLEND_MODELS = (
     "lgbm_extended_tuned_seed42_20260523_0226",
     "lgbm_extended_tuned_seed123_20260523_0245",
     "lgbm_extended_tuned_seed777_20260523_0252",
@@ -90,7 +92,7 @@ RECORD_11_MODELS_LB_91_9668 = (
 
 # Предыдущий рекорд (12 моделей, LB = 91.9471). Отличается от текущего
 # добавленной моделью cb_yetirank_extended_20260523_0232 (CV 0.9128).
-RECORD_12_MODELS_LB_91_9471 = RECORD_11_MODELS_LB_91_9668 + (
+RECORD_12_MODELS_LB_91_9471 = STAGE_A_BLEND_MODELS + (
     "cb_yetirank_extended_20260523_0232",
 )
 
