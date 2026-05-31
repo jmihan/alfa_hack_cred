@@ -18,6 +18,8 @@ B-бленда на части B-заявок, объясняет её на от
 from __future__ import annotations
 
 import argparse
+import os
+import tempfile
 from pathlib import Path
 
 import numpy as np
@@ -64,6 +66,8 @@ def _encode_categoricals_to_codes(df: pd.DataFrame, cat_cols: list[str]) -> pd.D
 
 
 def _save_plots(explainer, shap_values, x_sample, local_idx) -> None:
+    # MPLCONFIGDIR в /tmp — чтобы matplotlib мог писать кэш шрифтов в контейнере.
+    os.environ.setdefault("MPLCONFIGDIR", str(Path(tempfile.gettempdir()) / "mpl"))
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -71,15 +75,24 @@ def _save_plots(explainer, shap_values, x_sample, local_idx) -> None:
 
     REPORT_DIR.mkdir(parents=True, exist_ok=True)
 
-    shap.summary_plot(shap_values, x_sample, show=False, max_display=20)
-    plt.tight_layout(); plt.savefig(REPORT_DIR / "shap_beeswarm.png", dpi=130, bbox_inches="tight"); plt.close()
+    def _save(draw, filename: str) -> None:
+        """Рисует один график; сбой одного не должен ронять остальные."""
+        try:
+            draw()
+            plt.tight_layout()
+            plt.savefig(REPORT_DIR / filename, dpi=130, bbox_inches="tight")
+        except Exception as exc:  # noqa: BLE001 — графики не критичны, логируем причину
+            LOG.warning("график %s не сохранён: %r", filename, exc)
+        finally:
+            plt.close("all")
 
-    shap.summary_plot(shap_values, x_sample, plot_type="bar", show=False, max_display=20)
-    plt.tight_layout(); plt.savefig(REPORT_DIR / "shap_bar.png", dpi=130, bbox_inches="tight"); plt.close()
-
+    _save(lambda: shap.summary_plot(shap_values, x_sample, show=False, max_display=20),
+          "shap_beeswarm.png")
+    _save(lambda: shap.summary_plot(shap_values, x_sample, plot_type="bar", show=False, max_display=20),
+          "shap_bar.png")
     if "is_best_both" in x_sample.columns:
-        shap.dependence_plot("is_best_both", shap_values, x_sample, show=False, interaction_index=None)
-        plt.tight_layout(); plt.savefig(REPORT_DIR / "shap_dependence_is_best_both.png", dpi=130, bbox_inches="tight"); plt.close()
+        _save(lambda: shap.dependence_plot("is_best_both", shap_values, x_sample, show=False, interaction_index=None),
+              "shap_dependence_is_best_both.png")
 
     base_value = explainer.expected_value
     if isinstance(base_value, (list, np.ndarray)):
@@ -87,10 +100,9 @@ def _save_plots(explainer, shap_values, x_sample, local_idx) -> None:
     for k, row in enumerate(local_idx):
         if row >= len(x_sample):
             continue
-        shap.plots._waterfall.waterfall_legacy(
-            base_value, shap_values[row], x_sample.iloc[row], max_display=14, show=False
-        )
-        plt.tight_layout(); plt.savefig(REPORT_DIR / f"shap_waterfall_{k}.png", dpi=130, bbox_inches="tight"); plt.close()
+        _save(lambda r=row: shap.plots._waterfall.waterfall_legacy(
+            base_value, shap_values[r], x_sample.iloc[r], max_display=14, show=False),
+            f"shap_waterfall_{k}.png")
     LOG.info("Графики сохранены в %s", REPORT_DIR)
 
 

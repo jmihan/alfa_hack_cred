@@ -7,7 +7,6 @@
 #   docker compose run --rm cv             # обучение/CV одиночной модели по YAML-конфигу (эксперименты)
 #   docker compose run --rm interpret      # SHAP + permutation интерпретация
 #   docker compose --profile mlflow up     # MLflow UI на http://localhost:5000
-#   docker compose --profile notebook up   # Jupyter на http://localhost:8888
 #
 # Данные должны лежать в ./data. Полное воспроизведение рекорда с нуля:
 #   docker compose run --rm train          # ~50 мин: обучит и сохранит все модели, запишет сабмит
@@ -31,7 +30,6 @@ x-common: &common
     - ./mlruns:/app/mlruns
     - ./reports:/app/reports
     - ./configs:/app/configs
-    - ./notebooks:/app/notebooks
   # GPU (опционально): раскомментировать и запускать с CUDA-совместимым образом.
   # Рекорд считается на CPU, поэтому по умолчанию выключено.
   # deploy:
@@ -69,25 +67,11 @@ services:
     profiles: ["interpret"]
     command: ["python", "scripts/explain.py"]
 
-  # MLflow UI поверх ./mlruns.
+  # MLflow UI поверх ./mlruns. Открывать в браузере по http://localhost:5000
+  # (внутри контейнера сервер слушает 0.0.0.0:5000, наружу проброшен на localhost).
   mlflow-ui:
     <<: *common
     profiles: ["mlflow"]
     command: ["mlflow", "ui", "--host", "0.0.0.0", "--port", "5000", "--backend-store-uri", "mlruns/"]
     ports:
       - "5000:5000"
-
-  # Jupyter для EDA/ноутбуков (без токена — локальный запуск).
-  notebook:
-    <<: *common
-    profiles: ["notebook"]
-    command:
-      - "jupyter"
-      - "notebook"
-      - "--ip=0.0.0.0"
-      - "--port=8888"
-      - "--no-browser"
-      - "--allow-root"
-      - "--NotebookApp.token="
-    ports:
-      - "8888:8888"

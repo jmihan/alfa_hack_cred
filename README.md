@@ -269,19 +269,30 @@ pip install -e .
 ```powershell
 docker compose build                     # собрать образ alfa-cred:latest
 
-# полное воспроизведение рекорда с нуля (нужен только ./data):
-docker compose run --rm train            # обучить весь пайплайн + сохранить ./models + сабмит (~50 мин)
-docker compose run --rm inference        # быстрая пересборка сабмита из ./models (без обучения, ~10 мин)
+# полное воспроизведение с нуля (нужен только ./data):
+docker compose run --rm train            # обучить весь пайплайн + сохранить ./models + сабмит
+docker compose run --rm inference        # быстрая пересборка сабмита из ./models (без обучения)
 
 docker compose run --rm cv               # CV одиночной модели по YAML-конфигу (эксперименты, логи в ./mlruns)
-docker compose run --rm interpret        # SHAP + permutation (графики в ./reports/interpretation)
-docker compose --profile mlflow up       # MLflow UI -> http://localhost:5000
-docker compose --profile notebook up     # Jupyter -> http://localhost:8888
+docker compose run --rm interpret        # SHAP + permutation (графики/CSV в ./reports/interpretation)
+docker compose --profile mlflow up       # MLflow UI -> открыть http://localhost:5000 (Ctrl+C — остановить)
 ```
 
-Организаторам для воспроизведения рекорда достаточно положить данные в `./data`,
-собрать образ и запустить `docker compose run --rm train` — он обучит все модели
-с нуля и запишет сабмит в `./submissions/record_submission.csv`.
+Организаторам для воспроизведения достаточно положить данные в `./data`, собрать
+образ и запустить `docker compose run --rm train` — он обучит все модели с нуля и
+запишет сабмит в `./submissions/record_submission.csv`.
+
+**Время по этапам** (Ryzen 5 7500F, CPU; ориентир):
+
+| Режим | Время |
+|-------|-------|
+| `train` (A-бленд 5 + b_blend 8 + MLP 3, с нуля) | ≈ 55 мин (из них A-бленд ≈ 45 мин) |
+| `inference` (загрузка моделей + сборка сабмита) | ≈ 5 мин |
+| `cv` (одна LightGBM, 5-fold) | ≈ 25 мин |
+| `interpret` (обучение reference-модели + SHAP + permutation) | ≈ 2 мин |
+
+> MLflow UI открывать по `http://localhost:5000` (не `0.0.0.0` — внутри контейнера
+> сервер слушает `0.0.0.0:5000`, а наружу проброшен на localhost хоста).
 
 **GPU (опционально).** Рекорд считается на CPU, поэтому образ по умолчанию
 CPU-only. Для GPU соберите образ на CUDA-базе, раскомментируйте `deploy.resources`
