@@ -1,0 +1,50 @@
+# GPU-вариант образа для режима train (обучение с нуля, LB ≈ 92.19).
+#
+# Что обучается на GPU:
+#   - MLP B-стороны — torch (CUDA-сборка cu121);
+#   - XGBoost       — device="cuda" (GPU есть в стандартном колесе xgboost);
+#   - CatBoost      — task_type="GPU" (GPU есть в стандартном колесе catboost).
+# LightGBM остаётся на CPU (как весь хакатон) — поэтому пересобирать его не нужно,
+# и базовый образ — обычный python-slim (CUDA-рантайм приходит в колёсах torch/
+# xgboost/catboost, на хосте нужен только nvidia-container-toolkit + --gpus all).
+#
+# ВАЖНО: числа GPU-обучения отличаются от CPU, поэтому train-gpu НЕ воспроизводит
+# рекорд байт-в-байт. Точное воспроизведение 92.1957 — режим reproduce (CPU, GPU не
+# нужен): scripts/reproduce_record.py.
+
+FROM python:3.11-slim-bookworm
+
+# libgomp1 — OpenMP-рантайм для LightGBM/XGBoost (иначе import падает).
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_DEFAULT_TIMEOUT=120 \
+    PIP_RETRIES=10 \
+    KMP_DUPLICATE_LIB_OK=TRUE \
+    MPLCONFIGDIR=/tmp/mpl \
+    GIT_PYTHON_REFRESH=quiet \
+    ALFA_DEVICE=cuda
+
+WORKDIR /app
+
+# torch — CUDA-сборка (cu121); xgboost/catboost из requirements уже умеют GPU.
+COPY requirements.txt ./
+RUN pip install --upgrade pip \
+    && pip install torch==2.3.1 --index-url https://download.pytorch.org/whl/cu121 \
+    && pip install -r requirements.txt
+
+COPY pyproject.toml README.md ./
+COPY src ./src
+COPY scripts ./scripts
+COPY configs ./configs
+COPY artifacts ./artifacts
+RUN pip install -e .
+
+# По умолчанию — обучение с нуля (XGBoost/CatBoost/MLP на GPU через ALFA_DEVICE=cuda;
+# LightGBM на CPU). Нужен смонтированный ./data + --gpus all.
+CMD ["python", "scripts/fit_pipeline.py", "--out", "submissions/record_submission.csv"]

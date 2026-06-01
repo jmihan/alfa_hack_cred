@@ -65,34 +65,63 @@ def _encode_categoricals_to_codes(df: pd.DataFrame, cat_cols: list[str]) -> pd.D
     return df
 
 
-def _save_plots(explainer, shap_values, x_sample, local_idx) -> None:
-    # MPLCONFIGDIR в /tmp — чтобы matplotlib мог писать кэш шрифтов в контейнере.
+def _save_plots(explainer, shap_values, x_sample, local_idx, gimp, pimp) -> None:
+    """Сохраняет графики интерпретации в REPORT_DIR.
+
+    Сначала — гарантированные matplotlib-бары важностей (строятся прямо из
+    посчитанных таблиц, не зависят от рисующих функций shap, поэтому всегда
+    появляются). Затем — best-effort SHAP-графики (beeswarm/bar/dependence/
+    waterfall): они зависят от версии shap и могут не нарисоваться, что не
+    критично — ключевые важности уже сохранены барами выше.
+    """
+    # matplotlib в headless-режиме (Agg) + доступный кэш шрифтов (MPLCONFIGDIR),
+    # иначе сохранение в контейнере падает.
     os.environ.setdefault("MPLCONFIGDIR", str(Path(tempfile.gettempdir()) / "mpl"))
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
-    import shap
 
     REPORT_DIR.mkdir(parents=True, exist_ok=True)
 
-    def _save(draw, filename: str) -> None:
-        """Рисует один график; сбой одного не должен ронять остальные."""
+    def _barh(df: pd.DataFrame, value_col: str, title: str, filename: str, color: str) -> None:
         try:
-            draw()
-            plt.tight_layout()
-            plt.savefig(REPORT_DIR / filename, dpi=130, bbox_inches="tight")
-        except Exception as exc:  # noqa: BLE001 — графики не критичны, логируем причину
+            top = df.head(20).iloc[::-1]
+            fig, ax = plt.subplots(figsize=(8, 7))
+            ax.barh(top["feature"].astype(str), top[value_col].to_numpy(), color=color)
+            ax.set_title(title)
+            ax.set_xlabel(value_col)
+            fig.tight_layout()
+            fig.savefig(REPORT_DIR / filename, dpi=130, bbox_inches="tight")
+        except Exception as exc:  # noqa: BLE001
             LOG.warning("график %s не сохранён: %r", filename, exc)
         finally:
             plt.close("all")
 
-    _save(lambda: shap.summary_plot(shap_values, x_sample, show=False, max_display=20),
-          "shap_beeswarm.png")
-    _save(lambda: shap.summary_plot(shap_values, x_sample, plot_type="bar", show=False, max_display=20),
-          "shap_bar.png")
+    # --- Гарантированные графики важностей ---
+    _barh(gimp, "mean_abs_shap", "Глобальная SHAP-важность (top-20)",
+          "global_shap_importance.png", "#4C78A8")
+    _barh(pimp, "ndcg5_drop_mean", "Permutation importance: падение NDCG@5 (top-20)",
+          "permutation_importance_ndcg5.png", "#E45756")
+
+    # --- Best-effort SHAP-графики ---
+    def _save_shap(draw, filename: str) -> None:
+        try:
+            draw()
+            plt.savefig(REPORT_DIR / filename, dpi=130, bbox_inches="tight")
+        except Exception as exc:  # noqa: BLE001 — зависят от версии shap, не критичны
+            LOG.warning("SHAP-график %s не сохранён: %r", filename, exc)
+        finally:
+            plt.close("all")
+
+    import shap
+
+    _save_shap(lambda: shap.summary_plot(shap_values, x_sample, show=False, max_display=20),
+               "shap_beeswarm.png")
+    _save_shap(lambda: shap.summary_plot(shap_values, x_sample, plot_type="bar", show=False, max_display=20),
+               "shap_bar.png")
     if "is_best_both" in x_sample.columns:
-        _save(lambda: shap.dependence_plot("is_best_both", shap_values, x_sample, show=False, interaction_index=None),
-              "shap_dependence_is_best_both.png")
+        _save_shap(lambda: shap.dependence_plot("is_best_both", shap_values, x_sample, show=False, interaction_index=None),
+                   "shap_dependence_is_best_both.png")
 
     base_value = explainer.expected_value
     if isinstance(base_value, (list, np.ndarray)):
@@ -100,7 +129,7 @@ def _save_plots(explainer, shap_values, x_sample, local_idx) -> None:
     for k, row in enumerate(local_idx):
         if row >= len(x_sample):
             continue
-        _save(lambda r=row: shap.plots._waterfall.waterfall_legacy(
+        _save_shap(lambda r=row: shap.plots._waterfall.waterfall_legacy(
             base_value, shap_values[r], x_sample.iloc[r], max_display=14, show=False),
             f"shap_waterfall_{k}.png")
     LOG.info("Графики сохранены в %s", REPORT_DIR)
@@ -160,7 +189,7 @@ def main() -> None:
     # позиционные индексы совпадали с матрицей shap_values и x_sample.
     local_idx = pick_local_examples(sample_rows, n=3, seed=args.seed)
     try:
-        _save_plots(explainer, shap_values, x_sample, local_idx)
+        _save_plots(explainer, shap_values, x_sample, local_idx, gimp, pimp)
     except Exception as exc:  # графики не критичны для выводов
         LOG.warning("Не удалось сохранить графики: %s", exc)
 

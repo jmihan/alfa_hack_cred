@@ -1,0 +1,4 @@
+# Зафиксированные предсказания рекорда — строго бинарные (никаких EOL-конверсий),
+# иначе после клона на другой машине sha256 в режиме reproduce не сойдётся.
+artifacts/record/*.npy binary
+artifacts/record/*.parquet binary

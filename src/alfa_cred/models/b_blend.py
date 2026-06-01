@@ -50,6 +50,16 @@ def _pct_rank(df: pd.DataFrame, scores: np.ndarray) -> np.ndarray:
     return pd.Series(scores, index=df.index).groupby(df[REQUEST_ID].values).rank(pct=True).values
 
 
+def _xgb_device(device: str) -> dict:
+    """GPU-оверрайд для XGBoost (device=cuda поверх tree_method=hist)."""
+    return {"device": "cuda"} if device == "cuda" else {}
+
+
+def _cb_device(device: str) -> dict:
+    """GPU-оверрайд для CatBoost (task_type=GPU)."""
+    return {"task_type": "GPU", "devices": "0"} if device == "cuda" else {}
+
+
 def _xgb_frame(df: pd.DataFrame, feature_cols, cat_cols) -> pd.DataFrame:
     """Для XGBoost категориальные колонки переводим в целочисленные коды."""
     d = df[feature_cols].copy()
@@ -68,6 +78,7 @@ def _cb_frame(df: pd.DataFrame, cat_cols) -> pd.DataFrame:
 
 
 def _fit_lgb(train_b, feature_cols, cat_cols, seed):
+    # LightGBM всегда на CPU (как весь хакатон).
     t = train_b.sort_values(REQUEST_ID)
     group = t.groupby(REQUEST_ID, sort=False).size().values
     model = lgb.LGBMRanker(random_state=seed, **LGB_B_PARAMS)
@@ -75,20 +86,20 @@ def _fit_lgb(train_b, feature_cols, cat_cols, seed):
     return model.booster_
 
 
-def _fit_xgb(train_b, feature_cols, cat_cols, seed):
+def _fit_xgb(train_b, feature_cols, cat_cols, seed, device="cpu"):
     t = train_b.sort_values(REQUEST_ID)
     qid = pd.factorize(t[REQUEST_ID])[0].astype("int32")  # подряд после сортировки
-    model = xgb.XGBRanker(random_state=seed, **XGB_B_PARAMS)
+    model = xgb.XGBRanker(random_state=seed, **XGB_B_PARAMS, **_xgb_device(device))
     model.fit(_xgb_frame(t, feature_cols, cat_cols), t[TARGET].astype(int), qid=qid)
     return model
 
 
-def _fit_cb(train_b, feature_cols, cat_cols, seed, n_iter):
+def _fit_cb(train_b, feature_cols, cat_cols, seed, n_iter, device="cpu"):
     t = _cb_frame(train_b, cat_cols).sort_values(REQUEST_ID)
     cat_idx = [feature_cols.index(c) for c in cat_cols]
     pool = Pool(t[feature_cols], label=t[TARGET].astype(int).values,
                 group_id=t[REQUEST_ID].values, cat_features=cat_idx)
-    model = CatBoostRanker(iterations=n_iter, random_seed=seed, **CB_B_PARAMS)
+    model = CatBoostRanker(iterations=n_iter, random_seed=seed, **CB_B_PARAMS, **_cb_device(device))
     model.fit(pool)
     return model
 
@@ -101,15 +112,21 @@ def _predict_one(kind: str, model, feature_cols, cat_cols, predict_df) -> np.nda
     return model.predict(_cb_frame(predict_df, cat_cols)[feature_cols])
 
 
-def fit_b_models(train_b, feature_cols, cat_cols, n_iter_cb: int = CB_N_ITER) -> list[tuple[str, object]]:
-    """Обучает 8 B-моделей. Возвращает список `(kind, model)`, kind ∈ {lgb, xgb, cb}."""
+def fit_b_models(train_b, feature_cols, cat_cols, n_iter_cb: int = CB_N_ITER,
+                 device: str = "cpu") -> list[tuple[str, object]]:
+    """Обучает 8 B-моделей. Возвращает список `(kind, model)`, kind ∈ {lgb, xgb, cb}.
+
+    LightGBM всегда на CPU (как весь хакатон). `device="cuda"` переносит на GPU только
+    XGBoost (device=cuda) и CatBoost (task_type=GPU). Числа GPU-обучения отличаются от
+    CPU — байт-в-байт рекорд воспроизводит только `scripts/reproduce_record.py`.
+    """
     models: list[tuple[str, object]] = []
     for s in LGB_B_SEEDS:
         models.append(("lgb", _fit_lgb(train_b, feature_cols, cat_cols, s)))
     for s in XGB_B_SEEDS:
-        models.append(("xgb", _fit_xgb(train_b, feature_cols, cat_cols, s)))
+        models.append(("xgb", _fit_xgb(train_b, feature_cols, cat_cols, s, device)))
     for s in CB_B_SEEDS:
-        models.append(("cb", _fit_cb(train_b, feature_cols, cat_cols, s, n_iter_cb)))
+        models.append(("cb", _fit_cb(train_b, feature_cols, cat_cols, s, n_iter_cb, device)))
     return models
 
 

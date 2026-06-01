@@ -1,16 +1,19 @@
-# Режимы запуска пайплайна. Все сервисы используют один образ (alfa-cred:latest)
-# и монтируют данные/артефакты как volume. Запуск конкретного режима — по профилю:
+# Режимы запуска пайплайна. Базовый образ (alfa-cred:latest) — CPU; GPU-образ
+# (alfa-cred:gpu) собирается из Dockerfile.gpu только для train-gpu. Данные и
+# артефакты монтируются как volume. Каждый режим — отдельный сервис с профилем
+# (его команда `run --rm` сама активирует нужный профиль):
 #
-#   docker compose build
-#   docker compose run --rm train          # обучить весь пайплайн С НУЛЯ + сохранить модели в ./models + сабмит
-#   docker compose run --rm inference      # собрать сабмит из обученных моделей (без обучения)
-#   docker compose run --rm cv             # обучение/CV одиночной модели по YAML-конфигу (эксперименты)
-#   docker compose run --rm interpret      # SHAP + permutation интерпретация
-#   docker compose --profile mlflow up     # MLflow UI на http://localhost:5000
+#   docker compose build                              # собрать CPU-образ
+#   docker compose run --rm reproduce                 # БАЙТ-В-БАЙТ рекордный сабмит (LB 92.1957), ~2 мин, GPU не нужен
+#   docker compose run --rm train                     # обучить С НУЛЯ (CPU) + сохранить модели + сабмит (LB ≈ 92.19)
+#   docker compose --profile gpu run --rm train-gpu   # то же, XGB/CatBoost/MLP на GPU; нужен nvidia-container-toolkit
+#   docker compose run --rm inference                 # собрать сабмит из обученных моделей (без обучения)
+#   docker compose run --rm cv                        # обучение/CV одиночной модели по YAML-конфигу
+#   docker compose run --rm interpret                 # SHAP + permutation интерпретация
+#   docker compose --profile mlflow up                # MLflow UI на http://localhost:5000
 #
-# Данные должны лежать в ./data. Полное воспроизведение рекорда с нуля:
-#   docker compose run --rm train          # ~50 мин: обучит и сохранит все модели, запишет сабмит
-# Дальнейшие пересборки сабмита — быстрый inference из ./models.
+# Данные должны лежать в ./data. Точное воспроизведение рекорда:
+#   docker compose run --rm reproduce                 # детерминированно, на любой машине -> ровно 92.1957
 
 name: alfa-cred
 
@@ -24,31 +27,49 @@ x-common: &common
     PYTHONUNBUFFERED: "1"
   volumes:
     - ./data:/app/data
+    - ./artifacts:/app/artifacts
     - ./models:/app/models
     - ./oof:/app/oof
     - ./submissions:/app/submissions
     - ./mlruns:/app/mlruns
     - ./reports:/app/reports
     - ./configs:/app/configs
-  # GPU (опционально): раскомментировать и запускать с CUDA-совместимым образом.
-  # Рекорд считается на CPU, поэтому по умолчанию выключено.
-  # deploy:
-  #   resources:
-  #     reservations:
-  #       devices:
-  #         - driver: nvidia
-  #           count: all
-  #           capabilities: [gpu]
 
 services:
-  # Полное обучение рекордного пайплайна С НУЛЯ: A-бленд (5) + B-бленд (8) + MLP (3),
-  # сохранение моделей в ./models и запись сабмита (~50 мин на CPU).
+  # БАЙТ-В-БАЙТ сборка рекордного сабмита (LB 92.1957) из зафиксированных предсказаний
+  # в ./artifacts/record (A-сторона record_11 + B-ранги b_blend/MLP). Детерминированно
+  # на любой машине, GPU не нужен, ~2 мин. Сверяет sha256 с эталоном.
+  reproduce:
+    <<: *common
+    profiles: ["reproduce"]
+    command: ["python", "scripts/reproduce_record.py", "--out", "submissions/record_submission.csv"]
+
+  # Обучение пайплайна С НУЛЯ на CPU: A-бленд (5) + B-бленд (8) + MLP (3),
+  # сохранение моделей в ./models и запись сабмита (LB ≈ 92.19, ~55 мин).
   train:
     <<: *common
     profiles: ["train"]
     command: ["python", "scripts/fit_pipeline.py", "--out", "submissions/record_submission.csv"]
 
-  # Сборка сабмита из УЖЕ ОБУЧЕННЫХ моделей (./models), без обучения (~10 мин).
+  # То же обучение, но XGBoost/CatBoost/MLP — на GPU (LightGBM на CPU, как весь хакатон).
+  # Требует nvidia-container-toolkit на хосте. Числа GPU отличаются от CPU (не байт-в-байт).
+  train-gpu:
+    <<: *common
+    profiles: ["gpu"]
+    build:
+      context: .
+      dockerfile: Dockerfile.gpu
+    image: alfa-cred:gpu
+    command: ["python", "scripts/fit_pipeline.py", "--out", "submissions/record_submission.csv"]
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  # Сборка сабмита из УЖЕ ОБУЧЕННЫХ моделей (./models), без обучения (~5 мин).
   inference:
     <<: *common
     profiles: ["inference"]

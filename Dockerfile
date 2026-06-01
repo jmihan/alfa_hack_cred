@@ -36,7 +36,10 @@ COPY pyproject.toml README.md ./
 COPY src ./src
 COPY scripts ./scripts
 COPY configs ./configs
+# Зафиксированные предсказания рекорда (~9 МБ) для режима reproduce — байт-в-байт 92.1957.
+COPY artifacts ./artifacts
 RUN pip install -e .
 
-# По умолчанию — полное обучение пайплайна с нуля + сабмит (нужен смонтированный ./data).
-CMD ["python", "scripts/fit_pipeline.py", "--out", "submissions/record_submission.csv"]
+# По умолчанию — байт-в-байт сборка рекордного сабмита (LB 92.1957) из артефактов
+# (нужен смонтированный ./data). Обучение с нуля — через docker compose run train.
+CMD ["python", "scripts/reproduce_record.py", "--out", "submissions/record_submission.csv"]
