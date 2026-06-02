@@ -27,8 +27,10 @@ WORKDIR /app
 # Зависимости — отдельным слоем (кэшируется при изменениях кода). torch — CPU-сборка
 # (без CUDA-библиотек: легче образ и не нужна GPU на машине организаторов).
 COPY requirements.txt ./
-RUN pip install --upgrade pip \
-    && pip install torch==2.3.1 --index-url https://download.pytorch.org/whl/cpu \
+# torch — CPU-сборка (с индекса pytorch), остальное из requirements (pypi). Базовый
+# образ уже содержит setuptools (>=68) и wheel, поэтому НЕ апгрейдим их (лишние
+# обращения к pypi), а editable-install ниже идёт с --no-build-isolation.
+RUN pip install torch==2.3.1 --index-url https://download.pytorch.org/whl/cpu \
     && pip install -r requirements.txt
 
 # Пакет и точки входа.
@@ -38,7 +40,7 @@ COPY scripts ./scripts
 COPY configs ./configs
 # Зафиксированные предсказания рекорда (~9 МБ) для режима reproduce — байт-в-байт 92.1957.
 COPY artifacts ./artifacts
-RUN pip install -e .
+RUN pip install -e . --no-build-isolation
 
 # По умолчанию — байт-в-байт сборка рекордного сабмита (LB 92.1957) из артефактов
 # (нужен смонтированный ./data). Обучение с нуля — через docker compose run train.

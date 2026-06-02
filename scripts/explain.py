@@ -1,7 +1,12 @@
 """Интерпретация модели подзадачи B: SHAP + group-aware permutation на NDCG@5.
 
-Строит широкий offer-набор, обучает одиночную репрезентативную LightGBM-модель
-B-бленда на части B-заявок, объясняет её на отложенных B-заявках:
+Интерпретируется ИМЕННО рекордная модель B-стороны: одиночная LightGBM с теми же
+гиперпараметрами (`LGB_B_PARAMS`), сидом (42) и широким offer-набором, что и первый
+LightGBM-член рекордного `b_blend` (см. `models/b_blend.py`). Объясняем одну модель,
+а не rank-avg 8 моделей + MLP, потому что SHAP TreeExplainer применим к одному
+дереву; сигнал у всех членов бленда общий, поэтому одиночная модель репрезентативна.
+
+Обучается на части B-заявок, объясняется на отложенных B-заявках:
 - глобальная SHAP-важность (beeswarm/bar);
 - локальные SHAP-объяснения нескольких `is_best_both`-офферов (waterfall);
 - зависимость скора от `is_best_both`;
@@ -26,7 +31,7 @@ import numpy as np
 import pandas as pd
 from sklearn.model_selection import GroupShuffleSplit
 
-from alfa_cred.config import PROJECT_ROOT, REQUEST_ID, TARGET
+from alfa_cred.config import PROJECT_ROOT, REQUEST_ID
 from alfa_cred.features.pipeline import build_wide_feature_table
 from alfa_cred.interpret import (
     compute_shap,
@@ -83,6 +88,14 @@ def _save_plots(explainer, shap_values, x_sample, local_idx, gimp, pimp) -> None
 
     REPORT_DIR.mkdir(parents=True, exist_ok=True)
 
+    def _fresh(filename: str) -> Path:
+        # Удаляем старый файл перед записью: при bind-mount Docker Desktop перезапись
+        # существующего бинарника иногда не синхронится на хост, а создание нового —
+        # синхронится. Так PNG гарантированно обновляется (CSV-перезапись работает и так).
+        path = REPORT_DIR / filename
+        path.unlink(missing_ok=True)
+        return path
+
     def _barh(df: pd.DataFrame, value_col: str, title: str, filename: str, color: str) -> None:
         try:
             top = df.head(20).iloc[::-1]
@@ -91,7 +104,7 @@ def _save_plots(explainer, shap_values, x_sample, local_idx, gimp, pimp) -> None
             ax.set_title(title)
             ax.set_xlabel(value_col)
             fig.tight_layout()
-            fig.savefig(REPORT_DIR / filename, dpi=130, bbox_inches="tight")
+            fig.savefig(_fresh(filename), dpi=130, bbox_inches="tight")
         except Exception as exc:  # noqa: BLE001
             LOG.warning("график %s не сохранён: %r", filename, exc)
         finally:
@@ -107,8 +120,12 @@ def _save_plots(explainer, shap_values, x_sample, local_idx, gimp, pimp) -> None
     def _save_shap(draw, filename: str) -> None:
         try:
             draw()
-            plt.savefig(REPORT_DIR / filename, dpi=130, bbox_inches="tight")
+            plt.savefig(_fresh(filename), dpi=130, bbox_inches="tight")
+            LOG.info("SHAP-график сохранён: %s", filename)
         except Exception as exc:  # noqa: BLE001 — зависят от версии shap, не критичны
+            # Печатаем причину и в stdout (а не только в лог) — чтобы было видно,
+            # почему конкретный shap-график не нарисовался (бары важностей уже сохранены).
+            print(f"  [warn] SHAP-график {filename} не сохранён: {exc!r}", flush=True)
             LOG.warning("SHAP-график %s не сохранён: %r", filename, exc)
         finally:
             plt.close("all")
@@ -132,7 +149,12 @@ def _save_plots(explainer, shap_values, x_sample, local_idx, gimp, pimp) -> None
         _save_shap(lambda r=row: shap.plots._waterfall.waterfall_legacy(
             base_value, shap_values[r], x_sample.iloc[r], max_display=14, show=False),
             f"shap_waterfall_{k}.png")
-    LOG.info("Графики сохранены в %s", REPORT_DIR)
+    # Листинг того, что РЕАЛЬНО лежит в REPORT_DIR (взгляд из контейнера) — чтобы
+    # отличить «не нарисовалось» от «не синхронилось на хост» по bind-mount.
+    pngs = sorted(REPORT_DIR.glob("*.png"))
+    LOG.info("Графиков в %s: %d", REPORT_DIR, len(pngs))
+    for p in pngs:
+        LOG.info("  %s — %d байт", p.name, p.stat().st_size)
 
 
 def _print_table(title: str, df: pd.DataFrame, n: int = 20) -> None:
@@ -156,8 +178,8 @@ def main() -> None:
     tr_idx, va_idx = next(splitter.split(train_b, groups=train_b[REQUEST_ID]))
     fit_b, valid_b = train_b.iloc[tr_idx], train_b.iloc[va_idx].reset_index(drop=True)
 
-    LOG.info("Обучаю репрезентативную LightGBM-модель на %d B-заявках",
-             fit_b[REQUEST_ID].nunique())
+    LOG.info("Интерпретирую рекордную B-модель: LightGBM b_blend (LGB_B_PARAMS, seed=%d) "
+             "на %d B-заявках, %d фич", args.seed, fit_b[REQUEST_ID].nunique(), len(feature_cols))
     model = train_reference_model(fit_b, feature_cols, seed=args.seed)
 
     n_sample = min(args.shap_sample, len(valid_b))

@@ -1,4 +1,9 @@
-# Зафиксированные предсказания рекорда — строго бинарные (никаких EOL-конверсий),
-# иначе после клона на другой машине sha256 в режиме reproduce не сойдётся.
-artifacts/record/*.npy binary
-artifacts/record/*.parquet binary
+# Кросс-платформенная нормализация переводов строк.
+# Текст хранится и выгружается с LF — важно для run.sh и Docker на Linux (CRLF в
+# shebang ломает bash). Бинарные артефакты — без каких-либо EOL-конверсий, иначе
+# sha256 рекорда в режиме reproduce не сойдётся после клона.
+* text=auto eol=lf
+*.sh text eol=lf
+*.npy binary
+*.parquet binary
+*.png binary

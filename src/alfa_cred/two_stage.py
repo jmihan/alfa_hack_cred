@@ -20,7 +20,6 @@ os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
 # Windows c10.dll падает с WinError 1114 при уже загруженном OpenMP.
 import torch  # noqa: F401,E402
 
-from pathlib import Path  # noqa: E402
 
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402

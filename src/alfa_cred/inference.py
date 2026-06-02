@@ -69,12 +69,17 @@ def make_submission(
 
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    submission.to_csv(
-        out_path,
+    # Пишем детерминированно: формируем CSV в строку с фиксированным CRLF и пишем
+    # байтами. Иначе перевод строки зависит от ОС (Windows CRLF vs Linux LF) и байты
+    # сабмита (а с ними sha в режиме reproduce) различаются между локальной машиной и
+    # Docker при идентичном содержимом. На разбор/метрику Контеста EOL не влияет.
+    csv_text = submission.to_csv(
         sep=SUBMISSION_SEPARATOR,
         index=False,
         columns=list(SUBMISSION_COLUMNS),
+        lineterminator="\r\n",
     )
+    out_path.write_bytes(csv_text.encode("utf-8"))
     LOG.info("Сабмит сохранён: %s (rows=%d)", out_path, len(submission))
     return out_path
 

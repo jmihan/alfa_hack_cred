@@ -34,8 +34,9 @@ WORKDIR /app
 
 # torch — CUDA-сборка (cu121); xgboost/catboost из requirements уже умеют GPU.
 COPY requirements.txt ./
-RUN pip install --upgrade pip \
-    && pip install torch==2.3.1 --index-url https://download.pytorch.org/whl/cu121 \
+# torch — CUDA-сборка (cu121), остальное из requirements. Базовый образ уже содержит
+# setuptools (>=68) и wheel, поэтому НЕ апгрейдим их; editable-install — с --no-build-isolation.
+RUN pip install torch==2.3.1 --index-url https://download.pytorch.org/whl/cu121 \
     && pip install -r requirements.txt
 
 COPY pyproject.toml README.md ./
@@ -43,7 +44,7 @@ COPY src ./src
 COPY scripts ./scripts
 COPY configs ./configs
 COPY artifacts ./artifacts
-RUN pip install -e .
+RUN pip install -e . --no-build-isolation
 
 # По умолчанию — обучение с нуля (XGBoost/CatBoost/MLP на GPU через ALFA_DEVICE=cuda;
 # LightGBM на CPU). Нужен смонтированный ./data + --gpus all.
