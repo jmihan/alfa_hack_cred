@@ -120,7 +120,6 @@ def _build_output_config(base: dict, best_params: dict, run_name: str) -> dict:
 
 def _encode_categoricals(df, categorical_cols):
     """Превращает категориальные колонки в int32 кодами для LightGBM."""
-    import pandas as pd
     for col in categorical_cols:
         if col not in df.columns:
             continue

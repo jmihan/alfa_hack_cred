@@ -14,3 +14,23 @@ package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+extend-exclude = ["notebooks", "alfa_credit_v3", "scripts/overnight_*.py", "scripts/_local*.py"]
+
+[tool.ruff.lint]
+# F — pyflakes (неиспользуемое/неопределённое — ловит реальные баги); E/W — стиль.
+# Отключены намеренно:
+#   E402 — torch импортируется ПЕРВЫМ (до numpy/lightgbm), иначе на Windows конфликт
+#          OpenMP/MKL ломает c10.dll;
+#   E702 — компактные строки через `;` (осознанный стиль в обучающих циклах);
+#   E501 — длина строк (не форсим переразбивку существующего кода);
+#   E741 — короткие имена в локальных лямбдах/циклах.
+select = ["E", "W", "F"]
+ignore = ["E402", "E702", "E501", "E741"]

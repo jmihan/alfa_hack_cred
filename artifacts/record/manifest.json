@@ -1,0 +1,8 @@
+{
+  "w_bblend": 0.7,
+  "lb": "92.1957",
+  "n_rows": 936883,
+  "n_b_rows": 348053,
+  "sha256": "6bfd4e7cdce62b087e0775252a85710879c3e97a79eeab2eada7cc04b582bc21",
+  "note": "A=record_11 (two_stage_record11_plus_bBalanced_isbb), B=0.70*b_blend_rank+(1-0.70)*mlp_rank"
+}

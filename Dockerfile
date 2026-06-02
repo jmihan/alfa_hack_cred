@@ -18,15 +18,19 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_DEFAULT_TIMEOUT=120 \
     PIP_RETRIES=10 \
-    KMP_DUPLICATE_LIB_OK=TRUE
+    KMP_DUPLICATE_LIB_OK=TRUE \
+    MPLCONFIGDIR=/tmp/mpl \
+    GIT_PYTHON_REFRESH=quiet
 
 WORKDIR /app
 
 # Зависимости — отдельным слоем (кэшируется при изменениях кода). torch — CPU-сборка
 # (без CUDA-библиотек: легче образ и не нужна GPU на машине организаторов).
 COPY requirements.txt ./
-RUN pip install --upgrade pip \
-    && pip install torch==2.3.1 --index-url https://download.pytorch.org/whl/cpu \
+# torch — CPU-сборка (с индекса pytorch), остальное из requirements (pypi). Базовый
+# образ уже содержит setuptools (>=68) и wheel, поэтому НЕ апгрейдим их (лишние
+# обращения к pypi), а editable-install ниже идёт с --no-build-isolation.
+RUN pip install torch==2.3.1 --index-url https://download.pytorch.org/whl/cpu \
     && pip install -r requirements.txt
 
 # Пакет и точки входа.
@@ -34,7 +38,10 @@ COPY pyproject.toml README.md ./
 COPY src ./src
 COPY scripts ./scripts
 COPY configs ./configs
-RUN pip install -e .
+# Зафиксированные предсказания рекорда (~9 МБ) для режима reproduce — байт-в-байт 92.1957.
+COPY artifacts ./artifacts
+RUN pip install -e . --no-build-isolation
 
-# По умолчанию — полное обучение пайплайна с нуля + сабмит (нужен смонтированный ./data).
-CMD ["python", "scripts/fit_pipeline.py", "--out", "submissions/record_submission.csv"]
+# По умолчанию — байт-в-байт сборка рекордного сабмита (LB 92.1957) из артефактов
+# (нужен смонтированный ./data). Обучение с нуля — через docker compose run train.
+CMD ["python", "scripts/reproduce_record.py", "--out", "submissions/record_submission.csv"]

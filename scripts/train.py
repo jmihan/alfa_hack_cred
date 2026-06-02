@@ -18,7 +18,6 @@ from alfa_cred.config import (
     MLRUNS_DIR,
     SAMPLE_SUBMISSION_PATH,
     SUBMISSIONS_DIR,
-    TARGET,
 )
 from alfa_cred.features.pipeline import build_feature_table, feature_columns
 from alfa_cred.inference import (

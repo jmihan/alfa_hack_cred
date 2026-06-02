@@ -110,7 +110,13 @@ def _train_one(x_num, x_cat, y, cardinalities, seed, device):
 
 
 def fit_mlp(train_b, feature_cols, cat_cols, seeds=MLP_SEEDS, device: str | None = None) -> dict:
-    """Обучает MLP по сидам. Возвращает артефакт (веса + препроцессор + мета)."""
+    """Обучает MLP по сидам. Возвращает артефакт (веса + препроцессор + мета).
+
+    Сиды фиксируются в `_train_one` (numpy/torch + `cudnn.deterministic`), поэтому
+    на одной машине обучение run-to-run воспроизводимо. Принудительный однопоточный
+    CPU-режим намеренно НЕ включаем: он смещал результат и ухудшал LB (~92.17 вместо
+    ~92.19). Рекордный сабмит считался на GPU — см. `scripts/reproduce_record.py`.
+    """
     dev = _resolve_device(device)
     numeric_cols = [c for c in feature_cols if c not in cat_cols]
     mean, std, cat_maps, cardinalities = _fit_preprocessor(train_b, numeric_cols, cat_cols)

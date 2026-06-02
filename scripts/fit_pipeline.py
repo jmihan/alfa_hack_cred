@@ -42,18 +42,29 @@ def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Обучить рекордный пайплайн с нуля + сохранить модели (LB ≈ 92.19)")
     p.add_argument("--out", type=Path, default=SUBMISSIONS_DIR / "record_submission.csv")
     p.add_argument("--models-dir", type=Path, default=MODELS_DIR)
-    p.add_argument("--device", type=str, default=None, help="cuda|cpu для MLP (по умолчанию авто)")
+    p.add_argument("--device", type=str, default=None,
+                   help="cuda|cpu для всех моделей (GBDT + MLP); по умолчанию авто по torch.cuda")
     return p.parse_args()
+
+
+def _resolve_device(arg_device: str | None) -> str:
+    # Приоритет: --device > переменная окружения ALFA_DEVICE > cpu.
+    # Авто-cuda по torch специально НЕ используем: GPU-обучение GBDT требует
+    # CUDA-сборки LightGBM (она есть только в образе alfa-cred:gpu, ALFA_DEVICE=cuda).
+    # Иначе на CPU-окружении с GPU-torch fit LightGBM упал бы на device_type=cuda.
+    return arg_device or os.environ.get("ALFA_DEVICE") or "cpu"
 
 
 def main() -> None:
     args = parse_args()
     args.models_dir.mkdir(parents=True, exist_ok=True)
+    device = _resolve_device(args.device)
+    LOG.info("Устройство обучения: %s (GBDT + MLP)", device)
 
     # ---- A-сторона (расширенный набор) ----
     train_a, test_a, fc_a, cat_a = prepare_a_features()
     LOG.info("A: %d фич (%d кат.), train %d / test %d", len(fc_a), len(cat_a), len(train_a), len(test_a))
-    a_models = fit_a_models(train_a, fc_a, cat_a)
+    a_models = fit_a_models(train_a, fc_a, cat_a, device=device)
     save_a_models(a_models, args.models_dir)
     a_pct = predict_a_blend(a_models, fc_a, test_a)
     a_keys = test_a[[REQUEST_ID, VARIANT_ID, PIL_COL]].reset_index(drop=True)
@@ -65,13 +76,13 @@ def main() -> None:
     train_b, _test_sorted, _is_b, test_b, fc_b, cat_b = prepare_b_features()
     LOG.info("B: train-B %d заявок -> test-B %d заявок",
              train_b[REQUEST_ID].nunique(), test_b[REQUEST_ID].nunique())
-    b_models = fit_b_models(train_b, fc_b, cat_b)
+    b_models = fit_b_models(train_b, fc_b, cat_b, device=device)
     save_b_models(b_models, args.models_dir)
     b_rank = pct_rank(test_b, predict_b_blend(b_models, fc_b, cat_b, test_b))
     LOG.info("b_blend обучён и сохранён (8 моделей)")
-    mlp = fit_mlp(train_b, fc_b, cat_b, device=args.device)
+    mlp = fit_mlp(train_b, fc_b, cat_b, device=device)
     save_mlp(mlp, args.models_dir)
-    mlp_rank = pct_rank(test_b, predict_mlp(mlp, test_b, device=args.device))
+    mlp_rank = pct_rank(test_b, predict_mlp(mlp, test_b, device=device))
     LOG.info("pointwise-MLP обучён и сохранён (3 сида)")
 
     b_keys = test_b[[REQUEST_ID, VARIANT_ID]].copy()

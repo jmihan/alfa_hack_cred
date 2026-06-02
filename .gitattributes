@@ -1,0 +1,9 @@
+# Кросс-платформенная нормализация переводов строк.
+# Текст хранится и выгружается с LF — важно для run.sh и Docker на Linux (CRLF в
+# shebang ломает bash). Бинарные артефакты — без каких-либо EOL-конверсий, иначе
+# sha256 рекорда в режиме reproduce не сойдётся после клона.
+* text=auto eol=lf
+*.sh text eol=lf
+*.npy binary
+*.parquet binary
+*.png binary
