@@ -67,16 +67,3 @@ reports/
 # OS
 *.tmp
 *.bak
-
-# AI assistant tooling
-.claude/
-CLAUDE.md
-alfa_credit_v3/
-.aider*
-.cursorrules
-.cursor/
-.github/copilot-instructions.md
-.specstory/
-.continue/
-.codeium/
-.tabnine*

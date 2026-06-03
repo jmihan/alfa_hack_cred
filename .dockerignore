@@ -37,13 +37,9 @@ notebooks/
 *.pth
 *.onnx
 
-# AI-tooling и приватные промпты (никогда не в образ)
-.claude/
-CLAUDE.md
-*_PROMPT.md
+# Черновики и песочница (не нужны в образе)
 alfa_credit_v3/
-.cursor/
-.cursorrules
+experiments/
 
 # IDE / ОС / логи
 .vscode/
