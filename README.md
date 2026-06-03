@@ -394,7 +394,7 @@ python scripts/predict.py --out submissions/record_submission.csv
 можно скачать предобученные модели (A-бленд 5 + b_blend 8 + MLP) и распаковать их
 в `./models/`:
 
-- **Скачать (Google Drive):** `<ВСТАВИТЬ ССЫЛКУ>`
+- **Скачать (Google Drive):** [архив с моделями](https://drive.google.com/file/d/1Jm1ByonwI1L4IWX6ARSgOrGSGwd7cCMB/view?usp=sharing)
 - Распаковать архив в `./models/` (файлы `a_*`, `b_*`, `mlp_pointwise.pt`, манифесты).
 - Собрать сабмит: `docker compose run --rm inference` (или `python scripts/predict.py`).
 
