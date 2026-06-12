@@ -22,7 +22,7 @@ import pandas as pd
 
 from alfa_cred.config import REQUEST_ID, TARGET
 from alfa_cred.metrics import mean_ndcg_at_5
-from alfa_cred.models.b_blend import LGB_B_PARAMS
+from alfa_cred.models.b_ball import LGB_PARAMS
 
 
 def train_reference_model(train_b: pd.DataFrame, feature_cols: list[str], seed: int = 42):
@@ -35,7 +35,7 @@ def train_reference_model(train_b: pd.DataFrame, feature_cols: list[str], seed: 
 
     t = train_b.sort_values(REQUEST_ID)
     group = t.groupby(REQUEST_ID, sort=False).size().to_numpy()
-    model = lgb.LGBMRanker(random_state=seed, **LGB_B_PARAMS)
+    model = lgb.LGBMRanker(random_state=seed, n_estimators=500, **LGB_PARAMS)
     model.fit(t[feature_cols], t[TARGET].astype(int), group=group)
     return model
 
@@ -108,13 +108,12 @@ def group_permutation_importance(
 def pick_local_examples(valid_b: pd.DataFrame, n: int = 3, seed: int = 42) -> list[int]:
     """Позиционные индексы нескольких показательных B-офферов для локальных объяснений.
 
-    Берём `is_best_both`-офферы, ставшие сделкой (есть в данных) — на них видно,
-    как именно `is_best_both` тянет скор вверх.
+    Берём офферы, ставшие сделкой (`target=1`) — на них видно, как факторы тянут
+    скор вверх.
     """
     v = valid_b.reset_index(drop=True)
-    if "is_best_both" in v.columns and TARGET in v.columns:
-        mask = (v["is_best_both"] == 1) & (v[TARGET] == 1)
-        idx = v.index[mask].to_numpy()
+    if TARGET in v.columns:
+        idx = v.index[v[TARGET] == 1].to_numpy()
         if len(idx):
             rng = np.random.default_rng(seed)
             return list(rng.choice(idx, size=min(n, len(idx)), replace=False))

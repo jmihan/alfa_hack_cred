@@ -56,7 +56,6 @@ catboost_info/
 /models/
 /checkpoints/
 /oof/
-alfa_credit_v3/
 experiments/
 
 # Logs and reports

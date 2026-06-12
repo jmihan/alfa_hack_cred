@@ -1,17 +1,11 @@
-"""Тесты сборки two-stage сабмита: перцентильные ранги и склейка A/B + hard-rule.
-
-`two_stage` импортирует torch (torch-first для Windows), поэтому без torch модуль
-пропускается — в лёгком CI это skip, локально (torch есть) тесты выполняются.
-"""
+"""Тесты сборки two-stage сабмита: перцентильные ранги и склейка A/B + hard-rule."""
 
 import numpy as np
 import pandas as pd
 import pytest
 
-pytest.importorskip("torch")  # two_stage делает `import torch` на уровне модуля
-
-from alfa_cred import two_stage  # noqa: E402
-from alfa_cred.two_stage import assemble_submission, pct_rank  # noqa: E402
+from alfa_cred import two_stage
+from alfa_cred.two_stage import assemble_submission, pct_rank
 
 
 def test_pct_rank_within_request():

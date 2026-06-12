@@ -4,13 +4,13 @@
 # <service>` сам активирует нужный профиль. Сборка образа — обычным `docker build`:
 #
 #   docker build -t alfa-cred:latest .                # собрать CPU-образ
-#   docker compose run --rm reproduce                 # БАЙТ-В-БАЙТ рекорд (LB 92.1957), ~2 мин, GPU не нужен
-#   docker compose run --rm train                     # обучить С НУЛЯ (CPU) + сохранить модели + сабмит (LB ≈ 92.19)
+#   docker compose run --rm reproduce                 # БАЙТ-В-БАЙТ лучший сабмит, ~2 мин, GPU не нужен
+#   docker compose run --rm train                     # обучить С НУЛЯ (CPU) + сохранить модели + сабмит
 #   docker compose run --rm inference                 # собрать сабмит из обученных моделей (без обучения)
 #   docker compose run --rm cv                        # обучение/CV одиночной модели по YAML-конфигу (эксперименты)
 #   docker compose run --rm interpret                 # SHAP + permutation интерпретация
 #   docker build -f Dockerfile.gpu -t alfa-cred:gpu . # собрать GPU-образ
-#   docker compose --profile gpu run --rm train-gpu   # обучение, XGB/CatBoost/MLP на GPU; нужен nvidia-container-toolkit
+#   docker compose --profile gpu run --rm train-gpu   # обучение, XGB/CatBoost на GPU; нужен nvidia-container-toolkit
 #   docker compose --profile mlflow up                # MLflow UI на http://localhost:5000 (только UI, обучение не стартует)
 #
 # Данные должны лежать в ./data. Точное воспроизведение рекорда: docker compose run --rm reproduce.
@@ -36,22 +36,22 @@ x-common: &common
     - ./configs:/app/configs
 
 services:
-  # БАЙТ-В-БАЙТ сборка рекордного сабмита (LB 92.1957) из зафиксированных предсказаний
-  # в ./artifacts/record (A-сторона record_11 + B-ранги b_blend/MLP). Детерминированно
+  # БАЙТ-В-БАЙТ сборка лучшего сабмита из зафиксированных предсказаний в
+  # ./artifacts/record (A-сторона record_11 + B-сторона bAllL). Детерминированно
   # на любой машине, GPU не нужен, ~2 мин. Сверяет sha256 с эталоном.
   reproduce:
     <<: *common
     profiles: ["reproduce"]
     command: ["python", "scripts/reproduce_record.py", "--out", "submissions/record_submission.csv"]
 
-  # Обучение пайплайна С НУЛЯ на CPU: A-бленд (5) + B-бленд (8) + MLP (3),
-  # сохранение моделей в ./models и запись сабмита (LB ≈ 92.19, ~55 мин).
+  # Обучение пайплайна С НУЛЯ на CPU: A-бленд (5) + bAllL (5 XGB + 1 LGBM),
+  # сохранение моделей в ./models и запись сабмита (~55 мин).
   train:
     <<: *common
     profiles: ["train"]
     command: ["python", "scripts/fit_pipeline.py", "--out", "submissions/record_submission.csv"]
 
-  # То же обучение, но XGBoost/CatBoost/MLP — на GPU (LightGBM на CPU, как весь хакатон).
+  # То же обучение, но XGBoost/CatBoost — на GPU (LightGBM на CPU, как весь хакатон).
   # Требует nvidia-container-toolkit на хосте. Числа GPU отличаются от CPU (не байт-в-байт).
   train-gpu:
     <<: *common

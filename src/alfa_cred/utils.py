@@ -32,18 +32,10 @@ def get_logger(name: str = "alfa_cred", level: int = logging.INFO) -> logging.Lo
 
 
 def seed_everything(seed: int = 42) -> None:
-    """Фиксирует сиды numpy/random/torch, если торч установлен."""
+    """Фиксирует сиды random/numpy и PYTHONHASHSEED."""
     random.seed(seed)
     np.random.seed(seed)
     os.environ["PYTHONHASHSEED"] = str(seed)
-    try:
-        import torch
-
-        torch.manual_seed(seed)
-        if torch.cuda.is_available():
-            torch.cuda.manual_seed_all(seed)
-    except ImportError:
-        pass
 
 
 @contextmanager

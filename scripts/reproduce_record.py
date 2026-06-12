@@ -1,21 +1,21 @@
-"""REPRODUCE-режим: байт-в-байт сборка рекордного сабмита (LB 92.1957).
+"""REPRODUCE-режим: байт-в-байт сборка лучшего (приватного) сабмита.
 
-Финальный сабмит — двухстадийный по `pil1mtrx_offer`:
+Финальный сабмит `two_stage_record11_plus_bAllL` — двухстадийный по `pil1mtrx_offer`:
 - A-сторона (есть pil1-оффер): ранжирование A-бленда record_11 — зафиксированные
   предсказания на test (`artifacts/record/a_side_record11.parquet`).
-- B-сторона (нет pil1): `0.70·rank(b_blend) + (1-0.70)·rank(MLP)` — зафиксированные
-  перцентильные ранги на test (`artifacts/record/b_pct_*.npy`, ключи в
-  `b_keys.parquet`).
+- B-сторона (нет pil1): bAllL — rank-avg перцентильных рангов 5×XGBoost (Optuna) +
+  1×LightGBM extended; зафиксированные предсказания на test
+  (`artifacts/record/b_side_ball.parquet`).
 
-Порядок строк берётся из самих данных (`load_raw` → `sort_by_request`), поэтому
-сабмит маппится на актуальный test и сверяется со схемой `commit.csv`. Результат
-детерминирован на любой машине (CPU, GPU не нужен) и проверяется по sha256 против
-эталона из `manifest.json` — при расхождении скрипт падает с ошибкой.
+Порядок строк берётся из данных (`load_raw` → `sort_by_request`), поэтому сабмит
+маппится на актуальный test и сверяется со схемой `commit.csv`. Результат
+детерминирован на любой машине (GPU не нужен) и проверяется по sha256 против эталона
+из `manifest.json` — при расхождении скрипт падает с ошибкой.
 
-Зачем отдельный режим: A-бленд record_11 (агрегат большого числа прогонов) и
-NN-компонент B-стороны невозможно переобучить байт-в-байт на другом железе, тогда
-как зафиксированные предсказания дают точное воспроизведение рекорда. Режим `train`
-(`scripts/fit_pipeline.py`) обучает близкий пайплайн с нуля (LB ≈ 92.19).
+Зачем отдельный режим: A-бленд record_11 (агрегат 11 моделей, часть — разовые ночные
+схемы) и multi-seed B-ансамбль невозможно переобучить байт-в-байт на другом железе,
+тогда как зафиксированные предсказания дают точное воспроизведение. Режим `train`
+(`scripts/fit_pipeline.py`) обучает близкий пайплайн с нуля.
 
 Запуск:
     python scripts/reproduce_record.py
@@ -49,7 +49,7 @@ ARTIFACTS_DIR = PROJECT_ROOT / "artifacts" / "record"
 
 
 def parse_args() -> argparse.Namespace:
-    p = argparse.ArgumentParser(description="Байт-в-байт сборка рекордного сабмита (LB 92.1957)")
+    p = argparse.ArgumentParser(description="Байт-в-байт сборка лучшего сабмита (two_stage_record11_plus_bAllL)")
     p.add_argument("--out", type=Path, default=SUBMISSIONS_DIR / "record_submission.csv")
     p.add_argument("--artifacts", type=Path, default=ARTIFACTS_DIR)
     return p.parse_args()
@@ -58,7 +58,6 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     manifest = json.loads((args.artifacts / "manifest.json").read_text(encoding="utf-8"))
-    w = float(manifest["w_bblend"])
 
     # Порядок строк = sort_by_request(test): маппим зафиксированные предсказания
     # на актуальный test организаторов (а не на «вшитый» список ключей).
@@ -74,17 +73,14 @@ def main() -> None:
     a_side[VARIANT_ID] = a_side[VARIANT_ID].astype("int32")
     score = base.merge(a_side, on=[REQUEST_ID, VARIANT_ID], how="left")["score"].to_numpy()
 
-    # B-сторона: 0.70·b_blend + (1-0.70)·MLP (перцентильные ранги), перекрывает A на B-строках.
-    keys = pd.read_parquet(args.artifacts / "b_keys.parquet")
-    keys[REQUEST_ID] = keys[REQUEST_ID].astype(str)
-    keys[VARIANT_ID] = keys[VARIANT_ID].astype("int32")
-    b_pct = np.load(args.artifacts / "b_pct_bblend.npy")
-    mlp_pct = np.load(args.artifacts / "b_pct_mlp.npy")
-    keys["b_comb"] = w * b_pct + (1 - w) * mlp_pct
-    b_map = base.merge(keys[[REQUEST_ID, VARIANT_ID, "b_comb"]], on=[REQUEST_ID, VARIANT_ID], how="left")["b_comb"].to_numpy()
+    # B-сторона: bAllL (rank-avg 5 XGB + 1 LGBM), перекрывает A на B-строках.
+    b_side = pd.read_parquet(args.artifacts / "b_side_ball.parquet")
+    b_side[REQUEST_ID] = b_side[REQUEST_ID].astype(str)
+    b_side[VARIANT_ID] = b_side[VARIANT_ID].astype("int32")
+    b_map = base.merge(b_side, on=[REQUEST_ID, VARIANT_ID], how="left")["score"].to_numpy()
     is_b = ~np.isnan(b_map)
     score[is_b] = b_map[is_b]
-    LOG.info("A-строк %d, B-строк %d (вес b_blend=%.2f)", (~is_b).sum(), int(is_b.sum()), w)
+    LOG.info("A-строк %d, B-строк %d", (~is_b).sum(), int(is_b.sum()))
 
     if np.isnan(score).any():
         raise ValueError("После сборки остались NaN — артефакты не покрывают весь test")
@@ -95,7 +91,7 @@ def main() -> None:
 
     digest = hashlib.sha256(Path(args.out).read_bytes()).hexdigest()
     if digest == manifest["sha256"]:
-        LOG.info("OK: sha256 совпал с эталоном record (LB %s) -> воспроизведено байт-в-байт", manifest["lb"])
+        LOG.info("OK: sha256 совпал с эталоном (%s) -> воспроизведено байт-в-байт", manifest["record"])
     else:
         raise SystemExit(
             f"sha256 НЕ совпал: {digest} != {manifest['sha256']} (эталон record). "

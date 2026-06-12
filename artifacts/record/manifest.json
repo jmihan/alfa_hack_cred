@@ -1,8 +1,9 @@
 {
-  "w_bblend": 0.7,
-  "lb": "92.1957",
+  "record": "two_stage_record11_plus_bAllL",
+  "lb_public": "92.0006",
+  "lb_note": "лучший на приватном лидерборде (public-рекорд 92.1957 переобучился на public)",
   "n_rows": 936883,
   "n_b_rows": 348053,
-  "sha256": "6bfd4e7cdce62b087e0775252a85710879c3e97a79eeab2eada7cc04b582bc21",
-  "note": "A=record_11 (two_stage_record11_plus_bBalanced_isbb), B=0.70*b_blend_rank+(1-0.70)*mlp_rank"
+  "sha256": "a1b6a8640f8b7dd70689cd7b74441d336e9a34d70ccf2b0cf13e295026299d27",
+  "note": "A=record_11 (two_stage_record11), B=bAllL (rank-avg 5 XGB Optuna + 1 LGBM extended)"
 }

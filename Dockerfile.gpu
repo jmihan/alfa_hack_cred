@@ -1,16 +1,15 @@
-# GPU-вариант образа для режима train (обучение с нуля, LB ≈ 92.19).
+# GPU-вариант образа для режима train (обучение с нуля, близко к рекорду).
 #
 # Что обучается на GPU:
-#   - MLP B-стороны — torch (CUDA-сборка cu121);
-#   - XGBoost       — device="cuda" (GPU есть в стандартном колесе xgboost);
-#   - CatBoost      — task_type="GPU" (GPU есть в стандартном колесе catboost).
-# LightGBM остаётся на CPU (как весь хакатон) — поэтому пересобирать его не нужно,
-# и базовый образ — обычный python-slim (CUDA-рантайм приходит в колёсах torch/
-# xgboost/catboost, на хосте нужен только nvidia-container-toolkit + --gpus all).
+#   - XGBoost  — device="cuda" (GPU есть в стандартном колесе xgboost);
+#   - CatBoost — task_type="GPU" (GPU есть в стандартном колесе catboost; A-сторона).
+# LightGBM остаётся на CPU (как весь хакатон). CUDA-рантайм приходит внутри колёс
+# xgboost/catboost, поэтому базовый образ — обычный python-slim; на хосте нужен только
+# nvidia-container-toolkit + --gpus all (см. README).
 #
 # ВАЖНО: числа GPU-обучения отличаются от CPU, поэтому train-gpu НЕ воспроизводит
-# рекорд байт-в-байт. Точное воспроизведение 92.1957 — режим reproduce (CPU, GPU не
-# нужен): scripts/reproduce_record.py.
+# рекорд байт-в-байт. Точное воспроизведение — режим reproduce (CPU, GPU не нужен):
+# scripts/reproduce_record.py.
 
 FROM python:3.11-slim-bookworm
 
@@ -32,12 +31,10 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
-# torch — CUDA-сборка (cu121); xgboost/catboost из requirements уже умеют GPU.
+# xgboost/catboost из requirements уже умеют GPU. Базовый образ содержит setuptools
+# (>=68) и wheel, поэтому НЕ апгрейдим их; editable-install — с --no-build-isolation.
 COPY requirements.txt ./
-# torch — CUDA-сборка (cu121), остальное из requirements. Базовый образ уже содержит
-# setuptools (>=68) и wheel, поэтому НЕ апгрейдим их; editable-install — с --no-build-isolation.
-RUN pip install torch==2.3.1 --index-url https://download.pytorch.org/whl/cu121 \
-    && pip install -r requirements.txt
+RUN pip install -r requirements.txt
 
 COPY pyproject.toml README.md ./
 COPY src ./src
@@ -46,6 +43,6 @@ COPY configs ./configs
 COPY artifacts ./artifacts
 RUN pip install -e . --no-build-isolation
 
-# По умолчанию — обучение с нуля (XGBoost/CatBoost/MLP на GPU через ALFA_DEVICE=cuda;
+# По умолчанию — обучение с нуля (XGBoost/CatBoost на GPU через ALFA_DEVICE=cuda;
 # LightGBM на CPU). Нужен смонтированный ./data + --gpus all.
 CMD ["python", "scripts/fit_pipeline.py", "--out", "submissions/record_submission.csv"]

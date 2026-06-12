@@ -1,15 +1,15 @@
 """Интерпретация модели подзадачи B: SHAP + group-aware permutation на NDCG@5.
 
-Интерпретируется ИМЕННО рекордная модель B-стороны: одиночная LightGBM с теми же
-гиперпараметрами (`LGB_B_PARAMS`), сидом (42) и широким offer-набором, что и первый
-LightGBM-член рекордного `b_blend` (см. `models/b_blend.py`). Объясняем одну модель,
-а не rank-avg 8 моделей + MLP, потому что SHAP TreeExplainer применим к одному
+Интерпретируется ИМЕННО модель B-стороны: одиночная LightGBM с теми же
+гиперпараметрами (`LGB_PARAMS`), сидом (42) и расширенным набором (`build_feature_table`,
+B-only), что и LightGBM-член bAllL (см. `models/b_ball.py`). Объясняем одну модель, а не
+rank-avg 6 моделей (5 XGB + 1 LGBM), потому что SHAP TreeExplainer применим к одному
 дереву; сигнал у всех членов бленда общий, поэтому одиночная модель репрезентативна.
 
 Обучается на части B-заявок, объясняется на отложенных B-заявках:
 - глобальная SHAP-важность (beeswarm/bar);
-- локальные SHAP-объяснения нескольких `is_best_both`-офферов (waterfall);
-- зависимость скора от `is_best_both`;
+- локальные SHAP-объяснения нескольких офферов, ставших сделкой (waterfall);
+- зависимость скора от топ-признака;
 - permutation importance по падению NDCG@5 (group-aware).
 
 Графики и полные таблицы пишутся в `reports/interpretation/` (gitignored),
@@ -32,7 +32,6 @@ import pandas as pd
 from sklearn.model_selection import GroupShuffleSplit
 
 from alfa_cred.config import PROJECT_ROOT, REQUEST_ID
-from alfa_cred.features.pipeline import build_wide_feature_table
 from alfa_cred.interpret import (
     compute_shap,
     global_shap_importance,
@@ -40,14 +39,13 @@ from alfa_cred.interpret import (
     pick_local_examples,
     train_reference_model,
 )
-from alfa_cred.io_utils import load_raw
+from alfa_cred.two_stage import prepare_b_features
 from alfa_cred.utils import get_logger
 
 LOG = get_logger("explain")
-PIL_COL = "pil1mtrx_offer"
 REPORT_DIR = PROJECT_ROOT / "reports" / "interpretation"
-# Признаки, которые всегда включаем в permutation (ядро гипотезы про подзадачу B).
-ALWAYS_PERMUTE = ("is_best_both", "variant_no_norm", "variant_no_inv", "rate", "rate_rank")
+# Признаки, которые всегда включаем в permutation (позиционные/ставочные приоры B).
+ALWAYS_PERMUTE = ("rate", "rate_rank", "limit_rank", "term_rank", "ncl_rank")
 
 
 def parse_args() -> argparse.Namespace:
@@ -58,16 +56,6 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--valid-size", type=float, default=0.25, help="Доля B-заявок в valid")
     p.add_argument("--seed", type=int, default=42)
     return p.parse_args()
-
-
-def _encode_categoricals_to_codes(df: pd.DataFrame, cat_cols: list[str]) -> pd.DataFrame:
-    """Categorical → целочисленные коды (нужно для SHAP TreeExplainer)."""
-    for c in cat_cols:
-        if str(df[c].dtype) == "category":
-            df[c] = df[c].cat.codes.astype("int32")
-        elif df[c].dtype == object:
-            df[c] = df[c].astype("category").cat.codes.astype("int32")
-    return df
 
 
 def _save_plots(explainer, shap_values, x_sample, local_idx, gimp, pimp) -> None:
@@ -136,9 +124,10 @@ def _save_plots(explainer, shap_values, x_sample, local_idx, gimp, pimp) -> None
                "shap_beeswarm.png")
     _save_shap(lambda: shap.summary_plot(shap_values, x_sample, plot_type="bar", show=False, max_display=20),
                "shap_bar.png")
-    if "is_best_both" in x_sample.columns:
-        _save_shap(lambda: shap.dependence_plot("is_best_both", shap_values, x_sample, show=False, interaction_index=None),
-                   "shap_dependence_is_best_both.png")
+    top_feat = str(gimp.iloc[0]["feature"])
+    if top_feat in x_sample.columns:
+        _save_shap(lambda: shap.dependence_plot(top_feat, shap_values, x_sample, show=False, interaction_index=None),
+                   f"shap_dependence_{top_feat}.png")
 
     base_value = explainer.expected_value
     if isinstance(base_value, (list, np.ndarray)):
@@ -166,19 +155,15 @@ def main() -> None:
     args = parse_args()
     REPORT_DIR.mkdir(parents=True, exist_ok=True)
 
-    train, _test, feature_cols, cat_cols = build_wide_feature_table(*load_raw())
-    cat_cols = [c for c in cat_cols if c in feature_cols]
-    train["req_has_pil1"] = train.groupby(REQUEST_ID, sort=False)[PIL_COL].transform("max").astype("int8")
-    train_b = train[train["req_has_pil1"] == 0].reset_index(drop=True)
-    train_b = _encode_categoricals_to_codes(train_b, cat_cols)
-    LOG.info("train-B: %d строк, %d заявок, %d фич",
+    train_b, _ts, _is_b, _tb, feature_cols, cat_cols = prepare_b_features()
+    LOG.info("train-B (расширенный набор, без ask-match): %d строк, %d заявок, %d фич",
              len(train_b), train_b[REQUEST_ID].nunique(), len(feature_cols))
 
     splitter = GroupShuffleSplit(n_splits=1, test_size=args.valid_size, random_state=args.seed)
     tr_idx, va_idx = next(splitter.split(train_b, groups=train_b[REQUEST_ID]))
     fit_b, valid_b = train_b.iloc[tr_idx], train_b.iloc[va_idx].reset_index(drop=True)
 
-    LOG.info("Интерпретирую рекордную B-модель: LightGBM b_blend (LGB_B_PARAMS, seed=%d) "
+    LOG.info("Интерпретирую B-модель: репрезентативная LightGBM (параметры bAllL, seed=%d) "
              "на %d B-заявках, %d фич", args.seed, fit_b[REQUEST_ID].nunique(), len(feature_cols))
     model = train_reference_model(fit_b, feature_cols, seed=args.seed)
 
@@ -191,9 +176,6 @@ def main() -> None:
     gimp = global_shap_importance(shap_values, feature_cols)
     gimp.to_csv(REPORT_DIR / "shap_global_importance.csv", index=False)
     _print_table("Глобальная SHAP-важность (top-20)", gimp)
-    ibb = gimp.index[gimp.feature == "is_best_both"]
-    if len(ibb):
-        print(f"\nРанг `is_best_both` по SHAP: {int(ibb[0]) + 1} из {len(gimp)}")
 
     perm_feats = list(dict.fromkeys(
         gimp.head(args.perm_top)["feature"].tolist() + [f for f in ALWAYS_PERMUTE if f in feature_cols]

@@ -17,21 +17,21 @@ docker build -t alfa-cred:latest .     # за корпоративным VPN: д
 
 ## 2. Воспроизвести результат
 
-**Точный рекорд (LB 92.1957), байт-в-байт, ~2 мин, GPU не нужен:**
+**Точный лучший сабмит (приватный лидерборд), байт-в-байт, ~2 мин, GPU не нужен:**
 
 ```bash
 docker compose run --rm reproduce
-# сабмит -> ./submissions/record_submission.csv ; в логе "OK: sha256 совпал ... 92.1957"
+# сабмит -> ./submissions/record_submission.csv ; в логе "OK: sha256 совпал ..."
 ```
 
-**Обучение всего пайплайна с нуля (LB ≈ 92.19, ~55 мин CPU):**
+**Обучение всего пайплайна с нуля (~55 мин CPU):**
 
 ```bash
 docker compose run --rm train          # обучит модели в ./models и запишет сабмит
 docker compose run --rm inference      # пересобрать сабмит из ./models (без обучения)
 ```
 
-GPU-обучение (XGBoost/CatBoost/MLP на GPU, LightGBM на CPU):
+GPU-обучение (XGBoost/CatBoost на GPU, LightGBM на CPU):
 
 ```bash
 docker build -f Dockerfile.gpu -t alfa-cred:gpu .
@@ -43,13 +43,14 @@ docker compose --profile gpu run --rm train-gpu
 ## 3. Проверки (опционально)
 
 ```bash
-pytest                                  # юнит-тесты: NDCG@5, формат сабмита, is_best_both
+pytest                                  # юнит-тесты: NDCG@5, формат сабмита, ask-match
 docker compose run --rm interpret       # SHAP + permutation -> ./reports/interpretation
 docker compose --profile mlflow up      # MLflow UI -> http://localhost:5000
 ```
 
 > Почему рекорд воспроизводится из артефактов, а не переобучением: A-сторона
-> (бленд record_11) и нейросеть не воспроизводятся побайтно на другом железе,
-> поэтому их предсказания зафиксированы в `artifacts/record/` (≈9 МБ, в репозитории),
-> а `reproduce` детерминированно собирает из них ровно рекордный сабмит. Режим
-> `train` обучает близкий пайплайн с нуля (≈ 92.19).
+> (бленд record_11 — агрегат разовых прогонов) и multi-seed GBDT не воспроизводятся
+> побайтно на другом железе, поэтому их предсказания зафиксированы в
+> `artifacts/record/` (≈4 МБ, в репозитории), а `reproduce` детерминированно собирает
+> из них ровно лучший сабмит. Режим `train` обучает тот же пайплайн с нуля —
+> ранжирование совпадает с рекордным на ~96% top-1 (B-сторона).

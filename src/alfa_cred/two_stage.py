@@ -1,52 +1,52 @@
 """Two-stage пайплайн: подготовка признаков и сборка сабмита (train и inference).
 
-Подготовка признаков (A — расширенный набор, B — широкий) и сборка финального
-сабмита из готовых компонентов. Сами модели обучаются (`scripts/fit_pipeline.py`)
-или загружаются (`scripts/predict.py`) — здесь только feature engineering и
-two-stage сборка, общие для обоих режимов.
+Единый расширенный feature-набор (`build_feature_table`) для обеих сторон; для B —
+отфильтрован на заявки без pil1. Сборка финального сабмита из готовых компонентов.
+Сами модели обучаются (`scripts/fit_pipeline.py`) или загружаются (`scripts/predict.py`)
+— здесь только feature engineering и two-stage сборка, общие для обоих режимов.
 
 Архитектура:
 - A (есть pil1-оффер): rank-avg 5-модельного A-бленда + hard-rule (pil1 → верх).
-- B (нет pil1): 0.70·b_blend + 0.30·pointwise-MLP (перцентильные ранги).
+- B (нет pil1): bAllL — rank-avg 5 XGBoost + 1 LightGBM extended (перцентильные ранги).
 """
 
 from __future__ import annotations
 
 import os
 
+# Windows: lightgbm и xgboost тянут свои OpenMP-рантаймы; снимаем конфликт дублей.
 os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
 
-# torch импортируем ПЕРВЫМ (до lightgbm/catboost через model-модули): иначе на
-# Windows c10.dll падает с WinError 1114 при уже загруженном OpenMP.
-import torch  # noqa: F401,E402
+import numpy as np
+import pandas as pd
 
-
-import numpy as np  # noqa: E402
-import pandas as pd  # noqa: E402
-
-from alfa_cred.config import REQUEST_ID, SAMPLE_SUBMISSION_PATH, VARIANT_ID  # noqa: E402
-from alfa_cred.features.pipeline import (  # noqa: E402
-    build_feature_table,
-    build_wide_feature_table,
-    feature_columns,
-)
-from alfa_cred.inference import make_submission, verify_submission  # noqa: E402
-from alfa_cred.io_utils import encode_categoricals_inplace, load_raw, sort_by_request  # noqa: E402
+from alfa_cred.config import REQUEST_ID, SAMPLE_SUBMISSION_PATH, VARIANT_ID
+from alfa_cred.features.match import MATCH_FEATURE_COLUMNS
+from alfa_cred.features.pipeline import build_feature_table, feature_columns
+from alfa_cred.inference import make_submission, verify_submission
+from alfa_cred.io_utils import encode_categoricals_inplace, load_raw, sort_by_request
 
 PIL_COL = "pil1mtrx_offer"
-B_BLEND_WEIGHT = 0.70  # вес b_blend в B-стороне; 0.30 — на pointwise-MLP
 
 
 def pct_rank(df: pd.DataFrame, scores: np.ndarray) -> np.ndarray:
     return pd.Series(scores, index=df.index).groupby(df[REQUEST_ID].values).rank(pct=True).values
 
 
+def _drop_match(fc: list[str], cat: list[str]):
+    """Убирает ask-match фичи (`is_best_both` и т.п.): их не было в наборе на момент
+    формирования рекордного bAllL (25 мая) — добавлены позже (см. EXPERIMENTS.md)."""
+    drop = set(MATCH_FEATURE_COLUMNS)
+    return [c for c in fc if c not in drop], [c for c in cat if c not in drop]
+
+
 def prepare_a_features():
-    """Расширенный набор для A-бленда. Возвращает (train_sorted, test_sorted, fc, cat)."""
+    """Расширенный набор (без ask-match). Возвращает (train_sorted, test_sorted, fc, cat)."""
     train_raw, test_raw, feats = load_raw()
     train = build_feature_table(train_raw, feats, is_train=True)
     test = build_feature_table(test_raw, feats, is_train=False)
     fc, cat = feature_columns(train)
+    fc, cat = _drop_match(fc, cat)
     for c in fc:
         if c not in test.columns:
             test[c] = 0
@@ -55,13 +55,14 @@ def prepare_a_features():
 
 
 def prepare_b_features():
-    """Широкий offer-набор. Возвращает (train_b, test_sorted, is_b, test_b, fc, cat)."""
-    train, test, fc, cat = build_wide_feature_table(*load_raw())
-    cat = [c for c in cat if c in fc]
-    for d in (train, test):
+    """Тот же расширенный набор, B-only (как в исходном bAllL, Pipeline L).
+
+    Возвращает (train_b, test_sorted, is_b, test_b, fc, cat).
+    """
+    train_sorted, test_sorted, fc, cat = prepare_a_features()
+    for d in (train_sorted, test_sorted):
         d["req_has_pil1"] = d.groupby(REQUEST_ID, sort=False)[PIL_COL].transform("max").astype("int8")
-    train_b = train[train["req_has_pil1"] == 0]
-    test_sorted = sort_by_request(test)
+    train_b = train_sorted[train_sorted["req_has_pil1"] == 0].reset_index(drop=True)
     is_b = (test_sorted["req_has_pil1"] == 0).to_numpy()
     test_b = test_sorted[is_b].reset_index(drop=True)
     return train_b, test_sorted, is_b, test_b, fc, cat

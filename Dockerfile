@@ -1,9 +1,9 @@
 # Образ для воспроизведения пайплайна ранжирования кредитных офферов.
 #
-# CPU по умолчанию (всё обучается на CPU и воспроизводит LB-скор). Данные и
-# артефакты (./data, ./models, ./submissions, ...) внутрь образа НЕ кладём —
-# монтируются как volume (см. docker-compose.yml). torch ставится CPU-сборкой.
-# GPU-вариант — опционально, через --gpus all + CUDA-образ (см. README).
+# CPU по умолчанию (всё обучается/собирается на CPU). Данные и артефакты
+# (./data, ./models, ./submissions, ...) внутрь образа НЕ кладём — монтируются
+# как volume (см. docker-compose.yml). GPU-вариант (XGBoost/CatBoost на GPU) —
+# опционально, через Dockerfile.gpu + --gpus all (см. README).
 
 FROM python:3.11-slim-bookworm
 
@@ -24,24 +24,21 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
-# Зависимости — отдельным слоем (кэшируется при изменениях кода). torch — CPU-сборка
-# (без CUDA-библиотек: легче образ и не нужна GPU на машине организаторов).
+# Зависимости — отдельным слоем (кэшируется при изменениях кода). Базовый образ уже
+# содержит setuptools (>=68) и wheel, поэтому НЕ апгрейдим их (лишние обращения к
+# pypi), а editable-install ниже идёт с --no-build-isolation.
 COPY requirements.txt ./
-# torch — CPU-сборка (с индекса pytorch), остальное из requirements (pypi). Базовый
-# образ уже содержит setuptools (>=68) и wheel, поэтому НЕ апгрейдим их (лишние
-# обращения к pypi), а editable-install ниже идёт с --no-build-isolation.
-RUN pip install torch==2.3.1 --index-url https://download.pytorch.org/whl/cpu \
-    && pip install -r requirements.txt
+RUN pip install -r requirements.txt
 
 # Пакет и точки входа.
 COPY pyproject.toml README.md ./
 COPY src ./src
 COPY scripts ./scripts
 COPY configs ./configs
-# Зафиксированные предсказания рекорда (~9 МБ) для режима reproduce — байт-в-байт 92.1957.
+# Зафиксированные предсказания рекорда для режима reproduce — байт-в-байт best-сабмит.
 COPY artifacts ./artifacts
 RUN pip install -e . --no-build-isolation
 
-# По умолчанию — байт-в-байт сборка рекордного сабмита (LB 92.1957) из артефактов
-# (нужен смонтированный ./data). Обучение с нуля — через docker compose run train.
+# По умолчанию — байт-в-байт сборка лучшего сабмита из артефактов (нужен
+# смонтированный ./data). Обучение с нуля — через docker compose run train.
 CMD ["python", "scripts/reproduce_record.py", "--out", "submissions/record_submission.csv"]

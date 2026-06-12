@@ -1,1 +1,1 @@
-"""Обёртки над моделями (LightGBM/CatBoost/NN)."""
+"""Обёртки над моделями (LightGBM/XGBoost/CatBoost)."""
